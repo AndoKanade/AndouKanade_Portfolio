@@ -61,6 +61,11 @@ void Framework::Update(){
 	// --- 入力情報の更新 ---
 	input_->Update();
 
+	// 変更箇所: ImGui無し(Release等)でもF2キーでPlay/Stopを切り替えられるようにする
+	if(input_->TriggerKey(DIK_F2)){
+		EditorContext::GetInstance()->TogglePlayMode();
+	}
+
 	// --- ImGui 受付開始 ---
 	// 注意: シーン更新前に Begin() を呼び出す必要がある
 #ifdef USE_IMGUI

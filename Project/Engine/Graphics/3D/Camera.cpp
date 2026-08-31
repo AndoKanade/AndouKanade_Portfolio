@@ -8,7 +8,7 @@ Camera::Camera()
 		{0.0f, 0.0f, 0.0f},   // rotate
 		{0.0f, 0.0f, -10.0f}  // translate (画面に映るように手前に引く)
 		})
-	,fov(0.45f)
+	,fov(1.0472f) // 視野角60度(望遠気味に見えていた0.45rad(約26度)から変更)
 	,aspectRatio(float(WinAPI::kClientWidth) / float(WinAPI::kClientHeight))
 	,nearClip(0.1f)
 	,farClip(100.0f)

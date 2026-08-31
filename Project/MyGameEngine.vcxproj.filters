@@ -207,6 +207,9 @@
     <ClCompile Include="Game\scenes\TitleScene.cpp">
       <Filter>ソース ファイル\Game\Scenes</Filter>
     </ClCompile>
+    <ClCompile Include="Game\scenes\ClearScene.cpp">
+      <Filter>ソース ファイル\Game\Scenes</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\Graphics\3D\SkinCluster.cpp">
       <Filter>ソース ファイル\Engine\Graphics\3D</Filter>
     </ClCompile>
@@ -219,6 +222,7 @@
     <ClCompile Include="Game\Editor\RailEditor.cpp">
       <Filter>ソース ファイル\Game\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Manager\GlobalVariables.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\Base\D3DResourceLeakChecker.h">
@@ -335,6 +339,9 @@
     <ClInclude Include="Game\scenes\TitleScene.h">
       <Filter>ヘッダー ファイル\Game\Scenes</Filter>
     </ClInclude>
+    <ClInclude Include="Game\scenes\ClearScene.h">
+      <Filter>ヘッダー ファイル\Game\Scenes</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\Base\TimeManager.h">
       <Filter>ヘッダー ファイル\Engine\Base</Filter>
     </ClInclude>
@@ -344,6 +351,9 @@
     <ClInclude Include="Game\Editor\RailEditor.h">
       <Filter>ヘッダー ファイル\Game\Editor</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Manager\EditorContext.h" />
+    <ClInclude Include="Engine\Manager\EditorWidgets.h" />
+    <ClInclude Include="Engine\Manager\GlobalVariables.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Engine\Graphics\Shaders\Obj3D\Object3d.hlsli">

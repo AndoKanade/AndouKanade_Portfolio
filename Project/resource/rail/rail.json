@@ -64,6 +64,47 @@
                 0.0
             ],
             "speed": 1.0
+        },
+        {
+            "position": [
+                30.899999618530273,
+                2.4000000953674316,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "speed": 1.0,
+            "branchTargetRailIndex": 1,
+            "branchTargetPointIndex": 1
+        },
+        {
+            "position": [
+                36.0,
+                5.599999904632568,
+                1.5
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "speed": 1.0
+        },
+        {
+            "position": [
+                40.70000076293945,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "speed": 1.0
         }
     ],
     "name": "rail"

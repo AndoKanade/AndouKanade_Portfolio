@@ -88,7 +88,7 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
       <Optimization>Custom</Optimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\Base;$(ProjectDir)Engine\Framework;$(ProjectDir)Engine\Manager;$(ProjectDir)Engine\Graphics\2D;$(ProjectDir)Engine\Graphics\3D;$(ProjectDir)Engine\Graphics\Effect;$(ProjectDir)Game;$(ProjectDir);$(ProjectDir)externals\assimp\include;C:\Lessons\MyEngine\Project\Engine\Graphics\3D\Animation;$(ProjectDir)Game\systems;$(ProjectDir)Game\scenes;$(ProjectDir)Game\Editor</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\Base;$(ProjectDir)Engine\Framework;$(ProjectDir)Engine\Manager;$(ProjectDir)Engine\Graphics\2D;$(ProjectDir)Engine\Graphics\3D;$(ProjectDir)Engine\Graphics\Effect;$(ProjectDir)Game;$(ProjectDir);$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\Graphics\3D\Animation;$(ProjectDir)Game\systems;$(ProjectDir)Game\scenes;$(ProjectDir)Game\Editor</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -96,7 +96,7 @@
       <AdditionalOptions>/ignore:4049 %(AdditionalOptions)</AdditionalOptions>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <AdditionalDependencies>imgui.lib;assimp-vc143-mdd.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Lessons\MyEngine\Project\externals\assimp\lib\Debug;C:\Lessons\MyEngine\Project\..\generated\outputs\Debug\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)externals\assimp\lib\Debug;$(ProjectDir)..\generated\outputs\Debug\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>if not defined GITHUB_ACTIONS copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)"
@@ -116,7 +116,7 @@ if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVers
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <Optimization>MinSpace</Optimization>
-      <AdditionalIncludeDirectories>$(ProjectDir)Engine\Base;$(ProjectDir)Engine\Framework;$(ProjectDir)Engine\Manager;$(ProjectDir)Engine\Graphics\2D;$(ProjectDir)Engine\Graphics\3D;$(ProjectDir)Engine\Graphics\Effect;$(ProjectDir)Game;$(ProjectDir);$(ProjectDir)externals\assimp\include;C:\Lessons\MyEngine\Project\Engine\Graphics\3D\Animation;$(ProjectDir)Game\systems;$(ProjectDir)Game\scenes;$(ProjectDir)Game\Editor</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Engine\Base;$(ProjectDir)Engine\Framework;$(ProjectDir)Engine\Manager;$(ProjectDir)Engine\Graphics\2D;$(ProjectDir)Engine\Graphics\3D;$(ProjectDir)Engine\Graphics\Effect;$(ProjectDir)Game;$(ProjectDir);$(ProjectDir)externals\assimp\include;$(ProjectDir)Engine\Graphics\3D\Animation;$(ProjectDir)Game\systems;$(ProjectDir)Game\scenes;$(ProjectDir)Game\Editor</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -400,6 +400,7 @@ if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVers
     <ClInclude Include="Game\systems\SceneFactory.h" />
     <ClInclude Include="Game\systems\SceneManager.h" />
     <ClInclude Include="Game\scenes\TitleScene.h" />
+    <ClInclude Include="Game\scenes\ClearScene.h" />
     <ClInclude Include="resource\resource.h" />
   </ItemGroup>
   <ItemGroup>
@@ -441,6 +442,7 @@ if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVers
     <ClCompile Include="Game\systems\SceneFactory.cpp" />
     <ClCompile Include="Game\systems\SceneManager.cpp" />
     <ClCompile Include="Game\scenes\TitleScene.cpp" />
+    <ClCompile Include="Game\scenes\ClearScene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource\MyGameEngine.rc">

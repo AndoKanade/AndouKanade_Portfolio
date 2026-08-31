@@ -5,6 +5,7 @@
 // クラスの定義（中身）が書かれたヘッダーをインクルードする必要があります。
 #include "TitleScene.h"
 #include "GameScene.h"
+#include "ClearScene.h"
 
 // std::make_unique用
 #include <memory>
@@ -22,7 +23,12 @@ std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneNam
 		return std::make_unique<GameScene>();
 	}
 
-	// 3. 該当するシーン名がない場合
+	// 3. クリア画面
+	if(sceneName == "CLEAR"){
+		return std::make_unique<ClearScene>();
+	}
+
+	// 4. 該当するシーン名がない場合
 	// 予期せぬ文字列が来た場合は nullptr を返してエラー扱いにします
 	return nullptr;
 }

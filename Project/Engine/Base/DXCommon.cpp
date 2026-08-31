@@ -344,8 +344,10 @@ ComPtr<ID3D12DescriptorHeap> DXCommon::CreateDiscriptorHeap(D3D12_DESCRIPTOR_HEA
 ComPtr<IDxcBlob> DXCommon::CompileShader(const std::wstring& filePath,const wchar_t* profile){
 	Logger::Log(std::format("Begin CompileShader: {}\n",ConvertString(filePath)));
 
+	// 変更箇所: assert内で呼び出すとReleaseビルドで呼び出し自体が消えるため、呼び出しとチェックを分離
 	ComPtr<IDxcBlobEncoding> shaderSource = nullptr;
-	assert(SUCCEEDED(dxcUtils->LoadFile(filePath.c_str(),nullptr,&shaderSource)));
+	HRESULT hrLoadFile = dxcUtils->LoadFile(filePath.c_str(),nullptr,&shaderSource);
+	assert(SUCCEEDED(hrLoadFile));
 
 	DxcBuffer buffer;
 	buffer.Ptr = shaderSource->GetBufferPointer();
@@ -372,8 +374,10 @@ ComPtr<IDxcBlob> DXCommon::CompileShader(const std::wstring& filePath,const wcha
 		assert(false);
 	}
 
+	// 変更箇所: assert内で呼び出すとReleaseビルドで呼び出し自体が消えるため、呼び出しとチェックを分離
 	ComPtr<IDxcBlob> shaderBlob = nullptr;
-	assert(SUCCEEDED(shaderResult->GetOutput(DXC_OUT_OBJECT,IID_PPV_ARGS(&shaderBlob),nullptr)));
+	HRESULT hrGetOutput = shaderResult->GetOutput(DXC_OUT_OBJECT,IID_PPV_ARGS(&shaderBlob),nullptr);
+	assert(SUCCEEDED(hrGetOutput));
 
 	Logger::Log(std::format("Compile Succeeded: {}\n",ConvertString(filePath)));
 	return shaderBlob;
