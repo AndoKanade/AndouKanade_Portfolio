@@ -52,7 +52,6 @@ private:
 	Obj3dCommon* object3dCommon_ = nullptr;
 	Input* input_ = nullptr;
 	SpriteCommon* spriteCommon_ = nullptr;
-	Application* app_ = nullptr;
 
 	// スカイボックス
 	std::unique_ptr<SkyboxCommon> skyboxCommon_;
@@ -124,10 +123,10 @@ private:
 	bool isRailFinished_ = false;
 
 	// レール座標によるオンレール判定
-	// プレイヤーのワールド座標からレール上の最近傍点を求め、乗れる位置かどうかを判定する
+	// レールの乗り換えはジャンプしてプレイヤーを移動させ、着地判定で行う
 	bool isOnRail_ = true;
-	// 着地判定を細かくするため、距離1つの判定から水平距離+高さの通過判定に変更
-	// 水平方向(XZ平面)でレールの真上と言えるかどうかの許容距離(小さくすると真上を通らないと乗れなくなる)
+	// 着地判定は「水平方向でレールの真上にいる」ことと「落下でレールの高さを跨いだ」ことの両方を条件にする
+	// こちらはその水平方向(XZ平面)の許容距離(小さくすると真上を通らないと乗れなくなる)
 	const float kOnRailHorizontalThreshold_ = 1.0f;
 
 	// プレイヤーの自立(ジャンプ+WASD移動)用の状態
@@ -137,9 +136,6 @@ private:
 	float freeVelocityY_ = 0.0f;
 	// オフレール中の基準向き(レールを離れた瞬間の向きを固定して保持する)
 	Vector3 freeBaseRot_ = {0.0f, 0.0f, 0.0f};
-
-	// レールから落ちたときのリスタート判定の高さ
-	// 判定用の専用の値は持たず、描画している地面(kGroundHeight_)と同じ高さで判定する
 
 	// プレイヤーのジャンプ初速(上方向、1秒あたりの速度)
 	const float kJumpSpeed_ = 6.0f;
@@ -162,9 +158,6 @@ private:
 	// マウスカーソルの表示状態(Playモード中にTABキーで切り替え。Editモードでは常に表示する)
 	bool isCursorVisible_ = true;
 
-	// 不要になったため、カメラの位置・向きを可視化するマーカー一式を削除
-	// (cameraMarker_ / cameraFacingMarker_ / showCameraDebugMarkers_)
-
 	// プレイヤー入力によるカメラの照準オフセット(レールの向きに上乗せする)
 	float aimYawOffset_ = 0.0f;   // 左右(Y軸回転)
 	float aimPitchOffset_ = 0.0f; // 上下(X軸回転)
@@ -173,9 +166,6 @@ private:
 	const float kMouseSensitivity_ = 0.0004f; // マウス1移動量あたりの回転量(ラジアン)
 	const float kAimYawLimit_ = 0.6f;        // 左右の可動範囲(約34度)
 	const float kAimPitchLimit_ = 0.5f;      // 上下の可動範囲(約29度)
-
-	// レール間分岐移動の矢印キー操作を削除したため、乗り移り待ちの状態は持たない
-	// レールの乗り換えはジャンプしてプレイヤーを移動させ、着地判定(kOnRailHorizontalThreshold_)で行う
 
 	// テスト用の的
 	struct Target{

@@ -183,3 +183,171 @@ ImGui の "Rail Branch Debug" ウィンドウの敵の表示を、複数体に�
 - ゲームオーバー画面の "GAME OVER" 表示も、クリア画面と同じく ImGui での代用のまま。
 - プレイヤーの弾は発射のたびに `make_unique<Obj3D>` している。敵弾は使い回しているので、同じ方式に揃えたい。
 - 敵の体力以外のパラメータ（移動速度・検知範囲・発射間隔など）は `Enemy.h` の定数固定のままで、敵ごとの設定には対応していない。
+
+---
+
+## 2026-09-27
+
+### 目標
+
+- 09/24まで: レールから落ちたときにリスタートできるようにする
+- 09/27まで: 敵の攻撃を増やす
+
+### 1. レールから落ちたときのリスタート
+
+対象ファイル: `Game/scenes/GameScene.h` / `Game/scenes/GameScene.cpp`
+
+- Play開始時のリセット処理を `ResetPlayState()` として切り出し、Playに入った瞬間とリスタートで共通して使うようにした。処理内容は従来のリセットと同じ（railT_ を0に戻す、レールを0番へ、的を全て復活、弾をクリア、敵を `Reset()`、体力と無敵時間を初期化）。
+- オフレール中の落下判定で、どのレールにも着地できないまま一定の高さより下まで落ちたら `ResetPlayState()` を呼び、レール先頭からやり直すようにした。
+- 判定の高さは専用の定数を持たず、後述の地面の高さ `kGroundHeight_` をそのまま使っている。地面の高さを変えれば判定も一緒に動く。
+
+チェックポイント（落ちる直前のレール位置）からの復帰にはしていない。今回はレール先頭からのやり直しで実装した。
+
+### 2. 敵の攻撃の追加（3方向拡散ショット・追尾弾）
+
+対象ファイル: `Game/objects/Enemy.h` / `Game/objects/Enemy.cpp`
+
+- `AttackType`（`Single` / `Spread3` / `Homing`）を追加し、プレイヤーを検知して1回撃つごとに `kAttackOrder` の順番で切り替えるようにした。単発 → 3方向拡散 → 追尾弾 → 単発 … とローテーションする。
+- **3方向拡散ショット**: プレイヤー方向を中心に、Y軸回転で左右へ `kSpreadAngle` ずつ角度をつけた3発を同時発射する。上下の角度は中央の弾と同じにしている。
+- **追尾弾**: 発射後も毎フレーム進行方向をプレイヤー方向へ補間して向きを変える。補間の割合は `kHomingTurnRate * deltaTime`（1.0を超えないよう上限を設定）で、速さは `Bullet::speed` に保持して変えない。避けられる余地を残すため、通常弾より遅い `kHomingBulletSpeed` にした。
+- `Bullet` に `speed` と `isHoming` を追加した。`Reset()` で両方とも初期化し、再利用した弾が前回の設定を引きずらないようにした。
+- 発射間隔を攻撃の種類ごとに分け、`GetCurrentShotInterval()` で取得するようにした。弾数の多い拡散、避けにくい追尾は間隔を長めにしている。
+- 発射処理は `FireCurrentAttack()`（種類ごとの振り分け）と `FireBullet(spawnPosition, direction, speed, isHoming)`（未使用の弾を1発使う）に分けた。弾は従来どおり `Initialize` で16発まとめて生成して使い回している。
+
+追加した定数（すべて `Enemy.h` 内の `static constexpr`）:
+
+| 定数 | 値 | 内容 |
+| --- | --- | --- |
+| `kAttackOrderCount` | 3 | 攻撃を切り替える順番の要素数 |
+| `kAttackOrder` | Single, Spread3, Homing | 攻撃を切り替える順番 |
+| `kSpreadBulletCount` | 3 | 3方向拡散ショットで同時に発射する弾数 |
+| `kSpreadAngle` | 0.21f | 隣の弾との間につける角度（ラジアン、約12度） |
+| `kSpreadShotInterval` | 2.0f | 3方向拡散ショットの発射間隔（秒） |
+| `kHomingBulletSpeed` | 12.0f | 追尾弾の移動速度（1秒あたり） |
+| `kHomingTurnRate` | 1.5f | 追尾弾が1秒あたりに向きを補正する割合 |
+| `kHomingShotInterval` | 2.5f | 追尾弾の発射間隔（秒） |
+
+### 3. 簡易的な地面の描画
+
+対象ファイル: `Game/scenes/GameScene.h` / `Game/scenes/GameScene.cpp`
+
+奥行きが分かりにくかったため、`resource/Plane/plane.obj` を使って地面を表現した。
+
+- `CreateGroundTiles()` を追加し、レールの座標を基準に板モデルを格子状に敷き詰める。レールエディターの初期化後に呼ぶ必要がある。
+- plane.obj は XY 平面の 2x2 の板（法線 +Z）なので、X軸を -90 度回して法線を上向きにしている。
+- レール開始地点（t=0）の進行方向を「奥」として、奥へ 8 枚・手前へ 1 枚・横へ 5 列を並べる。並べる間隔はタイル1枚の1辺の長さそのままにしてあるため、繋ぎ目に隙間ができない。計45枚で 横100 × 奥180 の広さになり、現在のレール（x = -10.2 〜 40.7）は全域が地面の上に収まる。
+- 位置・向き・大きさは生成時に決め打ちし、毎フレームはアクティブカメラの同期と行列更新だけ行う。
+- テクスチャは plane.mtl の uvChecker がそのまま出るため、マス目で奥行きが分かる。
+
+追加した定数（`GameScene.h`）:
+
+| 定数 | 値 | 内容 |
+| --- | --- | --- |
+| `kGroundTilePlaneSize_` | 2.0f | 板モデル1枚の1辺の長さ |
+| `kGroundTileScale_` | 10.0f | 板モデルに掛ける表示スケール（1タイル20x20になる） |
+| `kGroundTileCountForward_` | 8 | 奥（進行方向）へ並べるタイル数 |
+| `kGroundTileCountBack_` | 1 | 手前へ並べるタイル数 |
+| `kGroundTileCountWidth_` | 5 | 横方向へ並べるタイル数 |
+| `kGroundHeight_` | -3.0f | 地面を敷くY座標（落下リスタートの判定にも使う） |
+| `kGroundRotateX_` | -π/2 | 板を水平にするためのX軸回転 |
+
+### 4. 着地判定の精密化
+
+対象ファイル: `Game/Editor/RailEditor.h` / `Game/Editor/RailEditor.cpp` / `Game/scenes/GameScene.h` / `Game/scenes/GameScene.cpp`
+
+まだレールに着いていないのに乗ってしまう問題があったため、判定方法を変更した。
+
+- 従来は最近傍点までの3D距離が `kOnRailDistanceThreshold_`（2.0）以内かどうかの1条件だった。球状の判定なのでレールの横や上にいるだけで乗ってしまっていた。
+- `NearestRailResult` に最近傍点のワールド座標 `position` を追加した。`FindNearestRail()` 内で既に計算している値をそのまま返すため、呼び出し側での再計算は発生しない。
+- 着地条件を2つの AND に変更した。
+  1. 水平方向（XZ平面）での最近傍点までの距離が `kOnRailHorizontalThreshold_` 以内（レールの真上にいる）
+  2. 前フレームはレールより上、今フレームでレールの高さ以下（落下でレール面を跨いだ瞬間）
+- 条件2は跨いだ瞬間のみ成立するため、許容距離を広げても「まだ着いてないのに乗る」現象は起きない。
+
+| 定数 | 値 | 内容 |
+| --- | --- | --- |
+| `kOnRailHorizontalThreshold_` | 1.0f | 水平方向の許容距離（`kOnRailDistanceThreshold_` = 2.0f を置き換え） |
+
+### 5. レール間分岐移動（矢印キー操作）の削除
+
+対象ファイル: `Game/scenes/GameScene.h` / `Game/scenes/GameScene.cpp`
+
+レールの乗り換えはジャンプしてプレイヤーを移動させ、着地判定で行う方式にしたため、矢印キーでの分岐操作を削除した。
+
+- `hasPendingBranch_` / `pendingBranchTargetRailIndex_` / `pendingBranchTargetPointIndex_` を削除。
+- 制御点の分岐設定を調べる分岐検知処理と、LEFT/RIGHT キーでの乗り移り処理を削除。
+- クリア判定を `isRailFinished_` のみに変更した（分岐待ちの条件が無くなったため）。
+- ImGui のデバッグ表示から Pending Branch / Required Key の行を削除。
+- カメラ右方向ベクトル `cameraRight` の計算は、オフレール中の WASD 移動で使っているため残している。
+
+RailEditor 側の分岐設定 UI（Inspector の Branch Target Rail/Point）と `rail.json` への保存は残しているが、実行時には読まれない状態になった。
+
+### 6. レール・弾の色分け
+
+対象ファイル: `Game/Editor/RailEditor.cpp` / `Game/objects/Enemy.cpp` / `Game/scenes/GameScene.cpp`
+
+どのレールに乗っているか、どちらの弾かを見た目で判別できるようにした。
+
+- レールごとの色分けパレット（白・水色・ピンク・黄緑）と分岐先ハイライト色を廃止し、**今乗っているレールを黄色、それ以外を黒**の2色にした。制御点の球と曲線の両方に適用される。着地してアクティブレールが切り替わると、黄色が乗り移り先へ移る。
+- **敵の弾を赤、自機の弾を青**にした。マテリアルは `Obj3D` ごとに持っているため、同じ sphere.obj を使っている的やレールの制御点には影響しない。敵弾は初期化時に16発生成する方式なので、色の設定も生成時の1回だけで済む。
+
+| 定数 | 値 | 内容 |
+| --- | --- | --- |
+| `RailEditor.cpp::kActiveRailColor` | 1.0, 0.9, 0.1, 1.0 | 今乗っているレールの色（黄色） |
+| `RailEditor.cpp::kInactiveRailColor` | 0.0, 0.0, 0.0, 1.0 | 乗っていないレールの色（黒） |
+| `Enemy.cpp::kEnemyBulletColor` | 1.0, 0.2, 0.2, 1.0 | 敵の弾の色（赤） |
+| `GameScene.cpp::kPlayerBulletColor` | 0.2, 0.4, 1.0, 1.0 | 自機の弾の色（青） |
+
+### 7. カメラデバッグマーカーの削除
+
+対象ファイル: `Game/scenes/GameScene.h` / `Game/scenes/GameScene.cpp`
+
+不要になったため、カメラの位置・向きを可視化するマーカー一式を削除した。
+
+- `cameraMarker_` / `cameraFacingMarker_` / `showCameraDebugMarkers_` を削除。
+- 生成・位置追従・描画、F3 キーでの表示トグル、ImGui の `Show Main Camera Markers` チェックボックスを削除。
+- 向きマーカー専用の調整項目だった GlobalVariables の `noseOffset` も登録・取得ごと削除した（`resource/GlobalVariables/GameScene.json` にキーは残っているが参照されない）。
+- 球モデルの読み込みは的や弾でも使うため残している。
+
+### 8. コードの整理
+
+対象ファイル: `Game/scenes/GameScene.h` / `Game/scenes/GameScene.cpp` / `Game/objects/Enemy.h` / `Game/objects/Enemy.cpp` / `Game/Editor/RailEditor.h` / `Game/Editor/RailEditor.cpp`
+
+処理内容は変えず、呼び出し元の無いコードと古くなったコメントを削除した。
+
+削除した不要なコード:
+
+| 場所 | 削除したもの | 理由 |
+| --- | --- | --- |
+| `GameScene.h` | `Application* app_` | どこからも参照されていない |
+| `GameScene.cpp` | `#include "SoundManager.h"` / `#include "Logger.h"` | このファイルで未使用 |
+| `Enemy.h` / `Enemy.cpp` | `Kill()` | 呼び出し元が無い（撃破は `TakeDamage()` 経由のみ） |
+| `RailEditor.h` / `.cpp` | `FindNearestTOnRail()` / `GetDistanceToRail()` | 呼び出し元が無い（着地判定は `FindNearestRail()` を使用） |
+| `RailEditor.h` / `.cpp` | `GetTFromControlPointIndex()` / `GetBranchAt()` / `GetControlPointPosition()` / `BranchInfo` | 矢印キーの分岐移動を削除したことで呼び出し元が無くなった |
+
+修正した古いコメント:
+
+- 「矢印キーはレール分岐操作に使用するため」→ 矢印キー操作が無くなったため修正。
+- ロードマップの番号を参照していた「(優先度1で実装)」を削除。
+- 「フェンスや地面等のオブジェクト」→ このシーンにフェンスは無く、地面タイルは毎フレーム `SetCamera()` を呼ぶため誤りだったので修正。
+- 機能削除の経緯を説明していたコメントを削除し、現在の挙動の説明だけを残した。
+- `Enemy.h` の `Bullet` 構造体の行末コメントの桁揃えを修正。`kShotInterval` / `kBulletSpeed` を「単発」「単発・3方向拡散用」と明示。
+
+### その他
+
+- `CLAUDE.md` の 4.3 を更新した。「変更箇所にはわかりやすい目印をつけること」を、「変更箇所を示す目印コメント（「ここから追加」「ここまで追加」など）は書かないこと。処理の意図を説明するコメントのみ記述する」に変更した。
+
+### ビルド確認
+
+`MyGameEngine.vcxproj` を Debug / x64 でビルドし、エラー・警告なしで成功することを確認した。
+
+### 残課題
+
+- リスタートはレール先頭からのやり直しのみ。チェックポイント（落ちる直前のレール位置）からの復帰は未実装。レールを離れた瞬間の `GetActiveRailIndex()` と `railT_` を保存しておけば対応できる。
+- 敵の攻撃の種類は全ての敵で共通の固定ローテーション。敵ごとに攻撃を選べるようにするには EnemyEditor と `enemy.json` への追加が必要。
+- 地面は描画のみで当たり判定は無い。また奥行き方向はレール開始地点の進行方向で固定なので、途中で大きく曲がるレールを作ると地面から外れる（レールを一定間隔でサンプリングしてタイルを敷く方式にすれば対応できる）。
+- ImGui のウィンドウ名が分岐機能削除後も `"Rail Branch Debug"` のまま。
+- RailEditor の分岐設定 UI と `rail.json` の `branchTargetRailIndex` / `branchTargetPointIndex` は残っているが、実行時に読まれない状態。
+- プレイヤーの弾は発射のたびに `make_unique<Obj3D>` している。敵弾は使い回しているので、同じ方式に揃えたい。前回からの持ち越し。
+- 体力・敵のHP・撃破数などの HUD 表示（スプライト）が未実装で、現状は ImGui のデバッグ表示のみ。前回からの持ち越し。
+- ゲームオーバー画面・クリア画面の文字表示は ImGui での代用のまま。前回からの持ち越し。

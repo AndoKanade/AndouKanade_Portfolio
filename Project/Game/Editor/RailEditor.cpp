@@ -359,18 +359,6 @@ float RailEditor::ComputeNearestTOnRail(const std::vector<ControlPoint>& control
 	return (lo + hi) * 0.5f;
 }
 
-// 指定ワールド座標に最も近いレール上の進行度t(0〜1)を求める(対象はアクティブなレール)
-float RailEditor::FindNearestTOnRail(const Vector3& worldPos) const{
-	return ComputeNearestTOnRail(rails_[activeRailIndex_].controlPoints,worldPos);
-}
-
-// 指定ワールド座標からレール上の最近傍点までの距離を求める(対象はアクティブなレール)
-float RailEditor::GetDistanceToRail(const Vector3& worldPos) const{
-	float nearestT = FindNearestTOnRail(worldPos);
-	Vector3 nearestPos = GetPositionOnRail(nearestT);
-	return Distance(nearestPos,worldPos);
-}
-
 // 全レールの中から、指定したワールド座標に最も近いレール・進行度・距離を求める(着地先レールの探索用)
 RailEditor::NearestRailResult RailEditor::FindNearestRail(const Vector3& worldPos) const{
 	NearestRailResult result;
@@ -521,53 +509,6 @@ int RailEditor::GetControlPointIndexFromT(float t) const{
 
 	// 区間の始点(GetPositionOnRailで言うp1)のインデックスが「直近に通過した制御点」
 	return static_cast<int>(segment) + 1;
-}
-
-// 指定した制御点インデックスにちょうど乗る進行度tを取得(対象はアクティブなレール)
-// GetControlPointIndexFromTの逆算(pointIndex = segment + 1 の関係を利用)
-float RailEditor::GetTFromControlPointIndex(int pointIndex) const{
-	const std::vector<ControlPoint>& controlPoints = rails_[activeRailIndex_].controlPoints;
-
-	// Catmull-Rom補間には最低4点必要
-	if(controlPoints.size() < 4){
-		return 0.0f;
-	}
-
-	int numSegments = static_cast<int>(controlPoints.size()) - 3;
-	int segment = pointIndex - 1;
-
-	if(segment < 0) segment = 0;
-	if(segment >= numSegments) segment = numSegments - 1;
-
-	return static_cast<float>(segment) / static_cast<float>(numSegments);
-}
-
-// アクティブなレールの指定インデックスの制御点に設定された分岐先情報を取得
-RailEditor::BranchInfo RailEditor::GetBranchAt(int pointIndex) const{
-	const std::vector<ControlPoint>& controlPoints = rails_[activeRailIndex_].controlPoints;
-
-	if(pointIndex < 0 || pointIndex >= static_cast<int>(controlPoints.size())){
-		return BranchInfo{};
-	}
-
-	BranchInfo info;
-	info.targetRailIndex = controlPoints[pointIndex].branchTargetRailIndex;
-	info.targetPointIndex = controlPoints[pointIndex].branchTargetPointIndex;
-	return info;
-}
-
-// 指定したレール・制御点インデックスの座標を取得(乗り移り方向の判定用。アクティブレール以外も参照可能)
-Vector3 RailEditor::GetControlPointPosition(int railIndex,int pointIndex) const{
-	if(railIndex < 0 || railIndex >= static_cast<int>(rails_.size())){
-		return {0.0f, 0.0f, 0.0f};
-	}
-
-	const std::vector<ControlPoint>& controlPoints = rails_[railIndex].controlPoints;
-	if(pointIndex < 0 || pointIndex >= static_cast<int>(controlPoints.size())){
-		return {0.0f, 0.0f, 0.0f};
-	}
-
-	return controlPoints[pointIndex].position;
 }
 
 // アクティブなレールの全制御点を囲む範囲の中心座標を取得
