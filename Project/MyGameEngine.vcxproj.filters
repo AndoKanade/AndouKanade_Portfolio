@@ -381,9 +381,13 @@
     <ClInclude Include="Game\objects\Enemy.h">
       <Filter>ヘッダー ファイル\Game\objects</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\Manager\EditorContext.h" />
-    <ClInclude Include="Engine\Manager\EditorWidgets.h" />
     <ClInclude Include="Engine\Manager\GlobalVariables.h" />
+    <ClInclude Include="Engine\Manager\EditorContext.h">
+      <Filter>ヘッダー ファイル\Game\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Manager\EditorWidgets.h">
+      <Filter>ヘッダー ファイル\Game\Editor</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Engine\Graphics\Shaders\Obj3D\Object3d.hlsli">

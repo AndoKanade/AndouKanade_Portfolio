@@ -22,17 +22,10 @@ namespace{
 	// 制御点リセット用のデフォルト値(初期制御点/Add Control Pointボタンと同じ初期値)
 	constexpr RailEditor::ControlPoint kDefaultControlPoint = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 1.0f};
 
-	// レールごとの色分け用パレット(レール数がパレット数を超えたら循環して使う)
-	constexpr Vector4 kRailColorPalette[] = {
-		{1.0f, 1.0f, 1.0f, 1.0f}, // Rail 0: 白
-		{0.3f, 0.6f, 1.0f, 1.0f}, // Rail 1: 水色
-		{1.0f, 0.4f, 0.8f, 1.0f}, // Rail 2: ピンク
-		{0.6f, 1.0f, 0.4f, 1.0f}, // Rail 3: 黄緑
-	};
-	constexpr int kRailColorPaletteCount = 4;
-
-	// 分岐先として乗り移り可能になったレールを強調する色(目立つ黄色)
-	constexpr Vector4 kHighlightColor = {1.0f, 0.9f, 0.1f, 1.0f};
+	// 今乗っている(アクティブな)レールの色(目立つ黄色)
+	constexpr Vector4 kActiveRailColor = {1.0f, 0.9f, 0.1f, 1.0f};
+	// 乗っていないレールの色(黒)
+	constexpr Vector4 kInactiveRailColor = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 
 RailEditor::RailEditor() = default;
@@ -234,15 +227,12 @@ void RailEditor::Draw(){
 	// Playモード中もレール(制御点の球・曲線)を見えるようにする
 	Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera();
 
-	// レール間分岐移動を目視確認できるよう、アクティブなレールだけでなく全レールを描画する
-	// レールごとに色を分け、分岐先として強調指定されているレールは目立つ色で上書きする
+	// レールの乗り換えを目視確認できるよう、アクティブなレールだけでなく全レールを描画する
+	// 今乗っているレールは目立つ色、それ以外は黒で描画する
 	for(size_t railIndex = 0; railIndex < rails_.size(); ++railIndex){
 		Rail& rail = rails_[railIndex];
 
-		Vector4 railColor = kRailColorPalette[railIndex % kRailColorPaletteCount];
-		if(static_cast<int>(railIndex) == highlightedRailIndex_){
-			railColor = kHighlightColor;
-		}
+		Vector4 railColor = (static_cast<int>(railIndex) == activeRailIndex_)?kActiveRailColor:kInactiveRailColor;
 
 		// 表示OFFのときは制御点のモデルを描画しない
 		if(rail.showControlPointModels){
@@ -322,8 +312,6 @@ Vector3 RailEditor::GetPositionOnRail(float t) const{
 	return ComputePositionOnRail(rails_[activeRailIndex_].controlPoints,t);
 }
 
-// ここから追加: レール座標によるオンレール判定用のAPI
-
 // 指定ワールド座標に最も近いレール上の進行度tを計算する
 // 手順: まずkNearestSearchSampleCount分割で粗くサンプリングして最も近い点を求め、
 // その前後の区間だけをkNearestRefineIterationCount回の三分探索で絞り込み、精度を上げる
@@ -398,12 +386,12 @@ RailEditor::NearestRailResult RailEditor::FindNearestRail(const Vector3& worldPo
 			result.railIndex = static_cast<int>(i);
 			result.t = t;
 			result.distance = distance;
+			result.position = nearestPos;
 		}
 	}
 
 	return result;
 }
-// ここまで追加
 
 // 進行度t(0〜1)からレール上の回転(オイラー角)を取得(対象はアクティブなレール)
 Vector3 RailEditor::GetRotationOnRail(float t) const{
@@ -506,11 +494,6 @@ int RailEditor::GetActiveRailIndex() const{
 // 読み込まれている全レールの本数を取得(デバッグ表示用)
 int RailEditor::GetRailCount() const{
 	return static_cast<int>(rails_.size());
-}
-
-// 分岐先として強調表示したいレールのインデックスを指定する(-1で強調解除)
-void RailEditor::SetHighlightedRailIndex(int index){
-	highlightedRailIndex_ = index;
 }
 
 // アクティブなレールの制御点数を取得

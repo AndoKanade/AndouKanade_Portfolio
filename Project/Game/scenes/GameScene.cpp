@@ -26,9 +26,8 @@
 #include "Editor/RailEditor.h"
 // 的の配置エディター
 #include "Editor/TargetEditor.h"
-// ここから追加: 敵の配置エディター
+// 敵の配置エディター
 #include "Editor/EnemyEditor.h"
-// ここまで追加
 // 雑魚敵
 #include "objects/Enemy.h"
 
@@ -37,6 +36,12 @@ namespace{
 	const std::string kSkyboxTexture = "resource/Skybox/rostock_laage_airport_4k.dds";
 	// GlobalVariablesのグループ名(GameSceneの調整項目)
 	const char* kGameSceneGroup = "GameScene";
+
+	// 簡易的な地面に使用する板モデルのパス
+	const std::string kGroundModelPath = "Plane/plane.obj";
+
+	// 自機の弾の色(敵弾が赤なので、区別できるよう青にする)
+	constexpr Vector4 kPlayerBulletColor = {0.2f, 0.4f, 1.0f, 1.0f};
 
 	// 撃破演出(パーティクル)に使用するテクスチャパス
 	const std::string kHitParticleTexture = "resource/circle.png";
@@ -73,6 +78,9 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	railEditor_ = std::make_unique<RailEditor>();
 	railEditor_->Initialize(object3dCommon_);
 
+	// 簡易的な地面の生成(レールの座標を基準に並べるため、レールエディターの初期化後に行う)
+	CreateGroundTiles();
+
 	// プレイヤー(人型モデル)の読み込みと生成
 	ModelManager::GetInstance()->LoadModel("human/walk.gltf");
 	player_ = std::make_unique<Obj3D>();
@@ -94,7 +102,6 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 		gv->AddItem(kGameSceneGroup,"aimYawLimit",kAimYawLimit_);         // 左右の可動範囲
 		gv->AddItem(kGameSceneGroup,"aimPitchLimit",kAimPitchLimit_);     // 上下の可動範囲
 		gv->AddItem(kGameSceneGroup,"aimHitAngle",kAimHitAngle_);         // ヒット判定の許容角度
-		gv->AddItem(kGameSceneGroup,"noseOffset",2.0f);                   // 向きマーカーを前方に離す距離
 	}
 
 	// 俯瞰用のデバッグカメラを生成
@@ -104,21 +111,12 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	debugTopCamera->SetTranslate({0.0f, 30.0f, 0.0f});
 	debugTopCamera->SetRotate({3.14159265f * 0.5f, 0.0f, 0.0f});
 
-	// カメラ位置を可視化するマーカーを生成
+	// 球モデルの読み込みは的や弾でも使うためロードしておく
 	ModelManager::GetInstance()->LoadModel("Sphere/sphere.obj");
-	cameraMarker_ = std::make_unique<Obj3D>();
-	cameraMarker_->Initialize(object3dCommon_);
-	cameraMarker_->SetModel("Sphere/sphere.obj");
 
-	// カメラの向きを可視化する小さいマーカーを生成
-	cameraFacingMarker_ = std::make_unique<Obj3D>();
-	cameraFacingMarker_->Initialize(object3dCommon_);
-	cameraFacingMarker_->SetModel("Sphere/sphere.obj");
-
-	// ここから追加: 的の配置エディターの生成と初期化(保存済みJSONがあればここで読み込まれる)
+	// 的の配置エディターの生成と初期化(保存済みJSONがあればここで読み込まれる)
 	targetEditor_ = std::make_unique<TargetEditor>();
 	targetEditor_->Initialize();
-	// ここまで追加
 
 	// 保存済みの配置が無い初回起動時のみ、従来どおりレール沿いの自動配置で初期データを作る
 	// 的をレール沿いの複数の進行度(t)に、左右・上下・奥行き(進行方向)へオフセットして配置(ゲームらしく散らばらせる)
@@ -161,7 +159,7 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	// 配置エディターの内容をシーンの的リストへ反映する
 	SyncTargetsFromEditor();
 
-	// ここから追加: 敵の配置エディターの生成と初期化(保存済みJSONがあればここで読み込まれる)
+	// 敵の配置エディターの生成と初期化(保存済みJSONがあればここで読み込まれる)
 	enemyEditor_ = std::make_unique<EnemyEditor>();
 	enemyEditor_->Initialize();
 
@@ -182,7 +180,6 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 
 	// 配置エディターの内容をシーンの敵リストへ反映する
 	SyncEnemiesFromEditor();
-	// ここまで追加
 
 	// 画面中央固定のレティクルを生成(外枠+中心ドットの2枚構成)
 	TextureManager::GetInstance()->LoadTexture("resource/Reticle/reticleOutline.png");
@@ -214,7 +211,52 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 // シーンの終了処理
 void GameScene::Finalize(){}
 
-// ここから追加: 的の配置エディターの内容をシーンの的リストに反映する
+// 地面タイルの生成
+// plane.objはXY平面の板なのでX軸を-90度回して水平にし、
+// レール開始地点を基準に進行方向(奥)と横方向へ格子状に並べることで簡易的な地面を表現する
+void GameScene::CreateGroundTiles(){
+	if(!railEditor_ || !object3dCommon_){
+		return;
+	}
+
+	ModelManager::GetInstance()->LoadModel(kGroundModelPath);
+
+	// レール開始地点と、その位置での進行方向(奥)・進行方向に直角な横方向を求める
+	constexpr Vector3 kWorldUp = {0.0f, 1.0f, 0.0f};
+	Vector3 startPosition = railEditor_->GetPositionOnRail(0.0f);
+	Vector3 forward = railEditor_->GetForwardOnRail(0.0f);
+	Vector3 right = Normalize(Cross(kWorldUp,forward));
+
+	// タイル1枚の1辺の長さをそのまま並べる間隔にすると、隙間なく敷き詰められる
+	const float tileStep = kGroundTilePlaneSize_ * kGroundTileScale_;
+	// 横方向は左右対称に並べるため、中央のタイルの添字を基準にずらす
+	const float widthCenterIndex = static_cast<float>(kGroundTileCountWidth_ - 1) * 0.5f;
+
+	// 生成数は固定なので、再確保が起きないよう先に確保しておく
+	groundTiles_.reserve(static_cast<size_t>(kGroundTileCountBack_ + kGroundTileCountForward_) * static_cast<size_t>(kGroundTileCountWidth_));
+
+	for(int depthIndex = -kGroundTileCountBack_; depthIndex < kGroundTileCountForward_; ++depthIndex){
+		for(int widthIndex = 0; widthIndex < kGroundTileCountWidth_; ++widthIndex){
+			Vector3 tilePosition = startPosition
+				+ forward * (static_cast<float>(depthIndex) * tileStep)
+				+ right * ((static_cast<float>(widthIndex) - widthCenterIndex) * tileStep);
+			// 高さはレールの起伏に関係なく一定にして、常に足元より下に敷く
+			tilePosition.y = kGroundHeight_;
+
+			auto tile = std::make_unique<Obj3D>();
+			tile->Initialize(object3dCommon_);
+			tile->SetModel(kGroundModelPath);
+			tile->SetTranslate(tilePosition);
+			tile->SetRotate({kGroundRotateX_, 0.0f, 0.0f});
+			// Z方向は板の厚みに相当するため拡大しない
+			tile->SetScale({kGroundTileScale_, kGroundTileScale_, 1.0f});
+
+			groundTiles_.push_back(std::move(tile));
+		}
+	}
+}
+
+// 的の配置エディターの内容をシーンの的リストに反映する
 // 個数が変わったときだけ描画用オブジェクトを生成・削除し、毎フレームの生成を避ける
 void GameScene::SyncTargetsFromEditor(){
 	if(!targetEditor_){
@@ -243,9 +285,8 @@ void GameScene::SyncTargetsFromEditor(){
 		targets_[i].position = targetEditor_->GetTargetPosition(static_cast<int>(i));
 	}
 }
-// ここまで追加
 
-// ここから追加: 敵の配置エディターの内容をシーンの敵リストに反映する
+// 敵の配置エディターの内容をシーンの敵リストに反映する
 // 的と同じく、体数が変わったときだけ敵の実体を生成・削除し、毎フレームの生成を避ける
 void GameScene::SyncEnemiesFromEditor(){
 	if(!enemyEditor_){
@@ -276,7 +317,37 @@ void GameScene::SyncEnemiesFromEditor(){
 		enemies_[i]->SetMaxHp(point.maxHp);
 	}
 }
-// ここまで追加
+
+// ゲームを初期状態(レール先頭)から始め直す
+// Playに入った瞬間と、レールから落ちたときのリスタートで共通して使う
+void GameScene::ResetPlayState(){
+	railT_ = 0.0f;
+	isRailFinished_ = false; // レール終端フラグもリセットする
+	aimYawOffset_ = 0.0f;
+	aimPitchOffset_ = 0.0f;
+	for(auto& t : targets_){
+		t.isAlive = true;
+	}
+	bullets_.clear(); // 開始時に残っている弾もリセットする
+
+	// レールを0番へ戻す
+	if(railEditor_){
+		railEditor_->SwitchActiveRail(0);
+	}
+
+	// オンレール/オフレールの状態もリセットし、必ずオンレールから開始する
+	isOnRail_ = true;
+	freeVelocityY_ = 0.0f;
+
+	// 雑魚敵も撃破前の初期状態(体力満タン)から始める
+	for(auto& enemy : enemies_){
+		enemy->Reset();
+	}
+
+	// プレイヤーの体力・無敵時間も初期状態に戻す
+	playerHp_ = kPlayerMaxHp_;
+	playerInvincibleTimer_ = 0.0f;
+}
 
 // シーンの更新処理
 void GameScene::Update(){
@@ -290,6 +361,15 @@ void GameScene::Update(){
 		ParticleManager::GetInstance()->Update(activeCamera);
 	}
 
+	// 地面タイルの更新
+	// 位置・向き・大きさは生成時に決めているため、カメラ切り替えへの追従と行列の更新だけ毎フレーム行う
+	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
+		for(auto& tile : groundTiles_){
+			tile->SetCamera(activeCamera);
+			tile->Update();
+		}
+	}
+
 	// レティクルの更新(画面中央固定なので位置は変わらないが、内部行列更新のため毎フレーム呼ぶ)
 	if(reticleOutlineSprite_) reticleOutlineSprite_->Update();
 	if(reticleCenterSprite_) reticleCenterSprite_->Update();
@@ -299,21 +379,19 @@ void GameScene::Update(){
 		railEditor_->Update();
 	}
 
-	// ここから追加: 的の配置エディターの更新(配置モード中のドラッグ移動もここで処理される)
+	// 的の配置エディターの更新(配置モード中のドラッグ移動もここで処理される)
 	if(targetEditor_){
 		targetEditor_->Update();
 		// 編集結果(追加・削除・ドラッグ移動)をシーンの的リストへ反映する
 		SyncTargetsFromEditor();
 	}
-	// ここまで追加
 
-	// ここから追加: 敵の配置エディターの更新(配置モード中のドラッグ移動もここで処理される)
+	// 敵の配置エディターの更新(配置モード中のドラッグ移動もここで処理される)
 	if(enemyEditor_){
 		enemyEditor_->Update();
 		// 編集結果(追加・削除・ドラッグ移動・パラメータ変更)をシーンの敵リストへ反映する
 		SyncEnemiesFromEditor();
 	}
-	// ここまで追加
 
 	// レール進行度を時間で進めて、カメラをレール上に乗せる
 	if(railEditor_){
@@ -325,7 +403,6 @@ void GameScene::Update(){
 		float aimYawLimit = gv->GetFloatValue(kGameSceneGroup,"aimYawLimit");
 		float aimPitchLimit = gv->GetFloatValue(kGameSceneGroup,"aimPitchLimit");
 		float aimHitAngle = gv->GetFloatValue(kGameSceneGroup,"aimHitAngle");
-		float noseOffset = gv->GetFloatValue(kGameSceneGroup,"noseOffset");
 
 		// エンジンが固定60fps前提(TimeManagerで60fps固定)なので、そのまま合わせる
 		const float deltaTime = 1.0f / 60.0f;
@@ -337,38 +414,7 @@ void GameScene::Update(){
 		// Playに入った瞬間、ゲームを初期状態から開始する(UnityのPlayと同じく毎回リセットして始まる)。
 		// これでPlayを押すとレール先頭=編集で見えていた画から始まる。
 		if(isPlayMode && !wasPlayMode_){
-			railT_ = 0.0f;
-			isRailFinished_ = false; // レール終端フラグもリセットする
-			aimYawOffset_ = 0.0f;
-			aimPitchOffset_ = 0.0f;
-			for(auto& t : targets_){
-				t.isAlive = true;
-			}
-			bullets_.clear(); // Play開始時に残っている弾もリセットする
-
-			// レール間分岐移動の状態をリセットし、必ずレール0から開始する
-			if(railEditor_){
-				railEditor_->SwitchActiveRail(0);
-			}
-			hasPendingBranch_ = false;
-			pendingBranchTargetRailIndex_ = -1;
-			pendingBranchTargetPointIndex_ = -1;
-
-			// ここから追加: オンレール/オフレールの状態もリセットし、必ずオンレールから開始する
-			isOnRail_ = true;
-			freeVelocityY_ = 0.0f;
-			// ここまで追加
-
-			// ここから追加: 雑魚敵も撃破前の初期状態(体力満タン)から始める
-			for(auto& enemy : enemies_){
-				enemy->Reset();
-			}
-			// ここまで追加
-
-			// ここから追加: プレイヤーの体力・無敵時間も初期状態に戻す
-			playerHp_ = kPlayerMaxHp_;
-			playerInvincibleTimer_ = 0.0f;
-			// ここまで追加
+			ResetPlayState();
 		}
 		wasPlayMode_ = isPlayMode;
 
@@ -397,26 +443,13 @@ void GameScene::Update(){
 			}
 		}
 
-		// レール間分岐移動 - 分岐検知
-		// まだ分岐先が確定していない間、現在のレール上で直近に通過した制御点に分岐設定があるか調べる(オンレール中のみ)
-		if(isPlayMode && isOnRail_ && !hasPendingBranch_){
-			int currentPointIndex = railEditor_->GetControlPointIndexFromT(railT_);
-			RailEditor::BranchInfo branch = railEditor_->GetBranchAt(currentPointIndex);
-			if(branch.targetRailIndex >= 0){
-				hasPendingBranch_ = true;
-				pendingBranchTargetRailIndex_ = branch.targetRailIndex;
-				pendingBranchTargetPointIndex_ = branch.targetPointIndex;
-			}
-		}
-
 		Vector3 railPos = railEditor_->GetPositionOnRail(railT_);
 		Vector3 railRot = railEditor_->GetRotationOnRail(railT_);
 
-		// ここから追加: オンレール/オフレールの状態に応じて、カメラ・プレイヤーの基準位置と基準向きを切り替える
+		// オンレール/オフレールの状態に応じて、カメラ・プレイヤーの基準位置と基準向きを切り替える
 		// オフレール中は、直前フレームで更新した自由移動座標(freePosition_)とジャンプ時に固定した向き(freeBaseRot_)を基準にする
 		Vector3 basePos = isOnRail_?railPos:freePosition_;
 		Vector3 baseRot = isOnRail_?railRot:freeBaseRot_;
-		// ここまで追加
 
 		// 三人称視点用に、カメラの実位置は基準位置そのものではなく少し上に置く
 		Vector3 cameraPos = basePos + Vector3{0.0f, cameraHeightOffset, 0.0f};
@@ -442,17 +475,6 @@ void GameScene::Update(){
 			mainCamera->SetRotate(finalRot);
 		}
 
-		// カメラマーカーもレール上の位置に追従させる
-		if(cameraMarker_){
-			cameraMarker_->SetTranslate(cameraPos);
-			cameraMarker_->SetScale({0.7f, 0.7f, 0.7f});
-			// アクティブカメラが切り替わっても正しく描画されるよう毎フレーム同期
-			if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
-				cameraMarker_->SetCamera(activeCamera);
-			}
-			cameraMarker_->Update();
-		}
-
 		// カメラの前方ベクトルを計算(finalRotベースの回転行列を適用)
 		Matrix4x4 rotateX = MakeRotateXMatrix(finalRot.x);
 		Matrix4x4 rotateY = MakeRotateYMatrix(finalRot.y);
@@ -466,8 +488,7 @@ void GameScene::Update(){
 			baseForward.x * rotateMatrix.m[0][2] + baseForward.y * rotateMatrix.m[1][2] + baseForward.z * rotateMatrix.m[2][2]
 		};
 
-		// レール間分岐移動 - 分岐選択・乗り移り
-		// カメラの右方向ベクトルをcameraForwardと同じ回転行列から算出する(分岐判定・デバッグ表示で共用)
+		// カメラの右方向ベクトルをオフレール中のWASD移動に使用するため、cameraForwardと同じ回転行列から算出する
 		Vector3 baseRight = {1.0f, 0.0f, 0.0f};
 		Vector3 cameraRight = {
 			baseRight.x * rotateMatrix.m[0][0] + baseRight.y * rotateMatrix.m[1][0] + baseRight.z * rotateMatrix.m[2][0],
@@ -475,43 +496,14 @@ void GameScene::Update(){
 			baseRight.x * rotateMatrix.m[0][2] + baseRight.y * rotateMatrix.m[1][2] + baseRight.z * rotateMatrix.m[2][2]
 		};
 
-		// デバッグ表示用に、分岐先が右にあるかどうかを保持しておく(分岐が無いときは意味を持たない)
-		bool debugBranchIsRight = false;
-
-		// 分岐先が判明している間、カメラ右方向ベクトルとの内積の符号で分岐先が左右どちらにあるか判定し、
-		// 対応する矢印キーが押されたら分岐先レールへ乗り移る(オンレール中のみ)
-		if(isPlayMode && isOnRail_ && hasPendingBranch_ && input_ && railEditor_){
-			Vector3 branchTargetPos = railEditor_->GetControlPointPosition(pendingBranchTargetRailIndex_,pendingBranchTargetPointIndex_);
-			Vector3 toBranch = branchTargetPos - cameraPos;
-
-			// 分岐先がカメラ右方向にあればRIGHTキー、左方向にあればLEFTキーで乗り移る(デバッグ表示用に計算だけ残す)
-			bool branchIsRight = Dot(toBranch,cameraRight) >= 0.0f;
-			debugBranchIsRight = branchIsRight;
-
-			// 左右判定のロジックが未確認のため、動作確認のため一旦LEFT/RIGHTどちらでも乗り移れるようにする
-			if(input_->TriggerKey(DIK_LEFT) || input_->TriggerKey(DIK_RIGHT)){
-				railEditor_->SwitchActiveRail(pendingBranchTargetRailIndex_);
-				railT_ = railEditor_->GetTFromControlPointIndex(pendingBranchTargetPointIndex_);
-				isRailFinished_ = false; // 乗り移り先レールを最後まで進めるようにする
-
-				hasPendingBranch_ = false;
-				pendingBranchTargetRailIndex_ = -1;
-				pendingBranchTargetPointIndex_ = -1;
-			}
-		}
-
 		// クリア判定
-		// 現在アクティブなレールが最後まで到達し、かつ乗り移れる分岐が残っていなければ、
-		// いったんゴール(クリア)としてクリア画面へ遷移する(オフレール中は判定しない)
-		if(isPlayMode && isOnRail_ && isRailFinished_ && !hasPendingBranch_){
+		// アクティブなレールが最後まで到達したらクリアとする(オフレール中は判定しない)
+		if(isPlayMode && isOnRail_ && isRailFinished_){
 			sceneManager_->ChangeScene("CLEAR");
 		}
 
-		// 分岐先レールをハイライト表示させる(乗り移り可能であることが見た目でわかるように)
-		railEditor_->SetHighlightedRailIndex(hasPendingBranch_?pendingBranchTargetRailIndex_:-1);
-
 #ifdef USE_IMGUI
-		// レール間分岐移動の動作確認用デバッグ表示(Playモード中も含めて常に表示する)
+		// レールの状態確認用デバッグ表示(Playモード中も含めて常に表示する)
 		{
 			ImGui::Begin("Rail Branch Debug");
 			ImGui::Text("Rail Count: %d",railEditor_->GetRailCount());
@@ -519,20 +511,15 @@ void GameScene::Update(){
 			ImGui::Text("Active Rail Point Count: %d",railEditor_->GetControlPointCount());
 			ImGui::Text("Rail T: %.3f",railT_);
 			ImGui::Text("Current Point Index: %d",railEditor_->GetControlPointIndexFromT(railT_));
-			if(hasPendingBranch_){
-				ImGui::Text("Pending Branch -> Rail %d / Point %d",pendingBranchTargetRailIndex_,pendingBranchTargetPointIndex_);
-				ImGui::Text("Required Key: %s",debugBranchIsRight?"RIGHT":"LEFT");
-			} else{
-				ImGui::Text("Pending Branch: none");
-			}
-			// ここから追加: オンレール判定・自由移動のデバッグ表示
+
+			// オンレール判定・自由移動のデバッグ表示
 			ImGui::Text("On Rail: %s",isOnRail_?"true":"false");
 			if(!isOnRail_){
 				ImGui::Text("Free Velocity Y: %.2f",freeVelocityY_);
 			}
 			ImGui::Text("Jump Key: LSHIFT");
-			// ここまで追加
-			// ここから追加: 雑魚敵のデバッグ表示(配置エディターで複数体置けるため、体ごとに体力も表示する)
+
+			// 雑魚敵のデバッグ表示(配置エディターで複数体置けるため、体ごとに体力も表示する)
 			{
 				// 生存数と敵弾の総数は、体ごとの表示と同じループでまとめて数える
 				int aliveEnemyCount = 0;
@@ -555,26 +542,13 @@ void GameScene::Update(){
 						enemies_[i]->IsDetectingPlayer()?"true":"false");
 				}
 			}
-			// ここまで追加
-			// ここから追加: プレイヤーの体力・無敵時間のデバッグ表示
+
+			// プレイヤーの体力・無敵時間のデバッグ表示
 			ImGui::Text("Player HP: %d / %d",playerHp_,kPlayerMaxHp_);
 			ImGui::Text("Player Invincible: %.2f",playerInvincibleTimer_);
-			// ここまで追加
 			ImGui::End();
 		}
 #endif
-
-		// カメラの向きを表す「鼻」マーカーを、カメラ前方ベクトルの方向に置く
-		if(cameraFacingMarker_){
-			Vector3 nosePos = cameraPos + cameraForward * noseOffset;
-
-			cameraFacingMarker_->SetTranslate(nosePos);
-			cameraFacingMarker_->SetScale({0.3f, 0.3f, 0.3f}); // 本体より小さくして区別
-			if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
-				cameraFacingMarker_->SetCamera(activeCamera);
-			}
-			cameraFacingMarker_->Update();
-		}
 
 		// プレイヤー(人型モデル)をカメラの前方下(基準位置)に配置し、進行方向(基準向き)を向かせる
 		// 座標は雑魚敵の検知判定にも使うため、if文の外で求めておく
@@ -591,15 +565,14 @@ void GameScene::Update(){
 			player_->Update();
 		}
 
-		// ここから追加: 雑魚敵の更新
+		// 雑魚敵の更新
 		// 固定パターンでの往復移動とプレイヤー検知による向きの変更を行う
 		// Edit中はゲームを静止させるため、経過時間を0にして表示更新のみ行わせる
 		for(auto& enemy : enemies_){
 			enemy->Update(playerPos,isPlayMode?deltaTime:0.0f);
 		}
-		// ここまで追加
 
-		// ここから追加: 敵弾とプレイヤーの当たり判定
+		// 敵弾とプレイヤーの当たり判定
 		// Playモード中のみ判定する。連続被弾で一瞬に体力が尽きないよう、被弾後は一定時間無敵にする
 		if(isPlayMode){
 			// 無敵時間の経過を進める
@@ -626,16 +599,14 @@ void GameScene::Update(){
 				ParticleManager::GetInstance()->EmitSpark(playerPos);
 			}
 		}
-		// ここまで追加
 
-		// ここから追加: ゲームオーバー判定
+		// ゲームオーバー判定
 		// 体力が0になったらゲームオーバー画面へ遷移する
 		if(isPlayMode && playerHp_ <= 0){
 			sceneManager_->ChangeScene("GAMEOVER");
 		}
-		// ここまで追加
 
-		// ここから追加: プレイヤーの自立(ジャンプ+WASD移動)
+		// プレイヤーの自立(ジャンプ+WASD移動)
 		// オンレール中はジャンプ入力でレールを離れて自由移動状態に切り替え、
 		// オフレール中はWASDでの水平移動と重力・ジャンプ初速による垂直移動を行い、
 		// レール座標によるオンレール判定(優先度1で実装)を使って着地先レールへ再度乗り移る
@@ -649,6 +620,9 @@ void GameScene::Update(){
 					freeBaseRot_ = baseRot; // 離脱時点の向きをオフレール中のカメラ基準向きとして固定する
 				}
 			} else{
+				// 移動前の高さを覚えておく(この後の着地判定でレールの高さを跨いだ瞬間を検出するのに使う)
+				const float previousPositionY = freePosition_.y;
+
 				// オフレール中はカメラ向き基準(XZ平面)でWASD移動する
 				Vector3 forwardXZ = Normalize(Vector3{cameraForward.x, 0.0f, cameraForward.z});
 				Vector3 rightXZ = Normalize(Vector3{cameraRight.x, 0.0f, cameraRight.z});
@@ -669,17 +643,34 @@ void GameScene::Update(){
 				// 落下中のみ着地判定を行う(上昇中に離脱直後の位置へ即座に再着地しないようにする)
 				if(freeVelocityY_ <= 0.0f){
 					RailEditor::NearestRailResult nearest = railEditor_->FindNearestRail(freePosition_);
-					if(nearest.railIndex >= 0 && nearest.distance <= kOnRailDistanceThreshold_){
-						railEditor_->SwitchActiveRail(nearest.railIndex);
-						railT_ = nearest.t;
-						isRailFinished_ = false; // 着地先レールを最後まで進めるようにする
-						isOnRail_ = true;
-						freeVelocityY_ = 0.0f;
+					// 着地判定を細かくする
+					// 距離1つ(球状の判定)だとレールの横や上にいるだけで乗ってしまうため、
+					// 「水平方向でレールの真上にいる」ことと「落下でレールの高さを跨いだ」ことの両方を条件にする
+					if(nearest.railIndex >= 0){
+						// 水平方向(XZ平面)だけで見た、レール最近傍点までの距離
+						Vector3 horizontalDiff = {freePosition_.x - nearest.position.x, 0.0f, freePosition_.z - nearest.position.z};
+						bool isAboveRail = Length(horizontalDiff) <= kOnRailHorizontalThreshold_;
+
+						// 前フレームはレールより上にいて、今フレームでレールの高さ以下まで落ちた瞬間だけ着地とみなす
+						bool crossedRailHeight = (previousPositionY > nearest.position.y) && (freePosition_.y <= nearest.position.y);
+
+						if(isAboveRail && crossedRailHeight){
+							railEditor_->SwitchActiveRail(nearest.railIndex);
+							railT_ = nearest.t;
+							isRailFinished_ = false; // 着地先レールを最後まで進めるようにする
+							isOnRail_ = true;
+							freeVelocityY_ = 0.0f;
+						}
+					}
+
+					// レールから落ちたときのリスタート
+					// どのレールにも乗れないまま、描画している地面(kGroundHeight_)の高さまで落ちたらレール先頭からやり直す
+					if(!isOnRail_ && freePosition_.y <= kGroundHeight_){
+						ResetPlayState();
 					}
 				}
 			}
 		}
-		// ここまで追加
 
 		// 弾の発射処理(SPACEキーを押した瞬間に1発だけ発射する)
 		bool shootTriggered = isPlayMode && input_ && input_->TriggerKey(DIK_SPACE);
@@ -688,6 +679,12 @@ void GameScene::Update(){
 			bullet.obj = std::make_unique<Obj3D>();
 			bullet.obj->Initialize(object3dCommon_);
 			bullet.obj->SetModel("Sphere/sphere.obj");
+
+			// 弾の色は生成時に一度設定するだけでよいため、ここで青にしておく
+			if(Model::Material* material = bullet.obj->GetMaterial()){
+				material->color = kPlayerBulletColor;
+			}
+
 			bullet.position = cameraPos;
 			bullet.velocity = cameraForward * kBulletSpeed_;
 			bullets_.push_back(std::move(bullet));
@@ -750,7 +747,7 @@ void GameScene::Update(){
 			}
 		}
 
-		// ここから追加: 雑魚敵への被弾判定
+		// 雑魚敵への被弾判定
 		// 的と同じく、生存している弾との中心間距離が敵の当たり半径以下ならヒットとする
 		// 敵には体力があるため、1発で撃破せず体力を減らし、0になったときだけ撃破される
 		for(auto& enemy : enemies_){
@@ -767,7 +764,6 @@ void GameScene::Update(){
 				}
 			}
 		}
-		// ここまで追加
 
 		// 命中または生存時間切れで消えた弾をリストから削除する
 		bullets_.erase(
@@ -820,9 +816,6 @@ void GameScene::Update(){
 	}
 
 	// ImGuiが無い環境でも表示切り替えができるよう、キー操作で各種デバッグ表示をトグルする
-	if(input_ && input_->TriggerKey(DIK_F3)){
-		showCameraDebugMarkers_ = !showCameraDebugMarkers_;
-	}
 	if(input_ && input_->TriggerKey(DIK_F4) && railEditor_){
 		railEditor_->ToggleShowControlPointModels();
 	}
@@ -887,9 +880,6 @@ void GameScene::Update(){
 					}
 				}
 			}
-
-			// メインカメラの位置・向きマーカーの表示ON/OFF切り替え
-			ImGui::Checkbox("Show Main Camera Markers",&showCameraDebugMarkers_);
 		}
 
 		// ライティング設定のUI
@@ -955,6 +945,11 @@ void GameScene::Update(){
 void GameScene::Draw(){
 	object3dCommon_->Draw();
 
+	// 簡易的な地面を描画(他のオブジェクトより先に描く)
+	for(auto& tile : groundTiles_){
+		tile->Draw();
+	}
+
 	// レールエディターの描画
 	if(railEditor_){
 		railEditor_->Draw();
@@ -965,17 +960,9 @@ void GameScene::Draw(){
 		player_->Draw();
 	}
 
-	// ここから追加: 雑魚敵を描画(撃破済みのときはEnemy側で描画をスキップする)
+	// 雑魚敵を描画(撃破済みのときはEnemy側で描画をスキップする)
 	for(auto& enemy : enemies_){
 		enemy->Draw();
-	}
-	// ここまで追加
-
-	// カメラ位置・向きのデバッグマーカーを描画(ON/OFF切り替え可能)
-	// Playモード中はギズモとして隠す(実行画面には出さない)
-	if(showCameraDebugMarkers_ && !EditorContext::GetInstance()->IsPlayMode()){
-		if(cameraMarker_) cameraMarker_->Draw();
-		if(cameraFacingMarker_) cameraFacingMarker_->Draw();
 	}
 
 	// 生存している的だけ描画
