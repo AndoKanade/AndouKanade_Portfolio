@@ -81,14 +81,6 @@ void Enemy::Reset(){
 	shotTimer_ = GetCurrentShotInterval();
 }
 
-// 撃破する
-void Enemy::Kill(){
-	isAlive_ = false;
-
-	// 撃破時は体力も0にして、表示と状態を食い違わせないようにする
-	hp_ = 0;
-}
-
 // 体力を減らす(撃破されたときtrueを返す)
 bool Enemy::TakeDamage(int damage){
 	// 撃破済みの敵はこれ以上体力が減らない

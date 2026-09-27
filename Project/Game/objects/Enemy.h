@@ -9,7 +9,7 @@ class Obj3dCommon;
 
 /// <summary>
 /// 雑魚敵
-/// 
+///
 /// 指定された基準座標を中心に、決められた方向へ一定距離を往復する固定パターンで移動する。
 /// プレイヤーが検知範囲内に入るとそちらを向き、弾が当たると撃破される。
 /// 検知中は一定間隔でプレイヤーへ向けて弾を発射する。
@@ -40,8 +40,6 @@ public:
 
 	// 初期状態(生存・移動位置の中心)へ戻す(Play開始時のリセット用)
 	void Reset();
-	// 撃破する
-	void Kill();
 
 	/// <summary>
 	/// 体力を減らす(撃破済みのときは何もしない)
@@ -94,13 +92,13 @@ private:
 	// 敵弾
 	// 発射のたびに生成・破棄すると無駄が多いため、初期化時に必要数だけ作っておき使い回す
 	struct Bullet{
-		std::unique_ptr<Obj3D> obj;              // 描画用の3Dオブジェクト(初期化時に一度だけ生成する)
+		std::unique_ptr<Obj3D> obj;            // 描画用の3Dオブジェクト(初期化時に一度だけ生成する)
 		Vector3 position = {0.0f, 0.0f, 0.0f}; // 現在のワールド座標
 		Vector3 velocity = {0.0f, 0.0f, 0.0f}; // 1秒あたりの移動量
-		float lifeTime = 0.0f;                   // 発射してからの経過時間(秒)
-		bool isAlive = false;                    // 使用中かどうか(falseなら未使用=再利用できる)
-		float speed = 0.0f;                      // 移動速度(向きを変えても速さを保つために保持する)
-		bool isHoming = false;                   // 追尾するかどうか(trueなら毎フレーム向きを補正する)
+		float lifeTime = 0.0f;                 // 発射してからの経過時間(秒)
+		bool isAlive = false;                  // 使用中かどうか(falseなら未使用=再利用できる)
+		float speed = 0.0f;                    // 移動速度(向きを変えても速さを保つために保持する)
+		bool isHoming = false;                 // 追尾するかどうか(trueなら毎フレーム向きを補正する)
 	};
 
 	// 弾の更新処理(移動・追尾の向き補正・寿命切れの判定・描画用トランスフォームの更新)
@@ -156,9 +154,9 @@ private:
 
 	// 同時に存在できる弾の最大数(この数だけ初期化時に生成して使い回す)
 	static constexpr size_t kMaxBulletCount = 16;
-	// 弾を発射する間隔(秒)
+	// 単発の発射間隔(秒)
 	static constexpr float kShotInterval = 1.2f;
-	// 弾の移動速度(1秒あたりの移動量)
+	// 単発・3方向拡散ショットの弾の移動速度(1秒あたりの移動量)
 	static constexpr float kBulletSpeed = 18.0f;
 	// 弾が消滅するまでの生存時間(秒)
 	static constexpr float kBulletLifeTime = 4.0f;

@@ -21,12 +21,6 @@ public:
 		int branchTargetPointIndex = -1; // 分岐先レール側の対応する制御点インデックス
 	};
 
-	// レール間分岐移動用の分岐先情報
-	struct BranchInfo{
-		int targetRailIndex = -1;  // 分岐先レールのインデックス(-1: 分岐なし)
-		int targetPointIndex = -1; // 分岐先レール側の対応する制御点インデックス
-	};
-
 	// 着地判定(オフレール時、全レール中から最も近いレールを探す)用の結果
 	struct NearestRailResult{
 		int railIndex = -1;    // 最も近いレールのインデックス(レールが1本も無い場合は-1)
@@ -57,11 +51,6 @@ public:
 	// レール上の速度(各制御点のSpeed値を補間したもの)を取得 (t: 0〜1)。対象はアクティブなレール
 	float GetSpeedOnRail(float t) const;
 
-	// レール座標によるオンレール判定用のAPI
-	// 指定したワールド座標に最も近いレール上の進行度t(0〜1)を求める(対象はアクティブなレール)
-	float FindNearestTOnRail(const Vector3& worldPos) const;
-	// 指定したワールド座標からレール上の最近傍点までの距離を求める(対象はアクティブなレール)
-	float GetDistanceToRail(const Vector3& worldPos) const;
 	// 全レールの中から、指定したワールド座標に最も近いレール・進行度・距離を求める(着地先レールの探索用)
 	NearestRailResult FindNearestRail(const Vector3& worldPos) const;
 
@@ -76,12 +65,6 @@ public:
 	int GetControlPointCount() const;
 	// 進行度tから、直近に通過した制御点のインデックスを取得(対象はアクティブなレール)
 	int GetControlPointIndexFromT(float t) const;
-	// 指定した制御点インデックスにちょうど乗る進行度tを取得(対象はアクティブなレール)
-	float GetTFromControlPointIndex(int pointIndex) const;
-	// アクティブなレールの指定インデックスの制御点に設定された分岐先情報を取得
-	BranchInfo GetBranchAt(int pointIndex) const;
-	// 指定したレール・制御点インデックスの座標を取得(乗り移り方向の判定用。アクティブレール以外も参照可能)
-	Vector3 GetControlPointPosition(int railIndex,int pointIndex) const;
 
 	// ImGui非表示時でもキー操作で表示切り替えを行うための関数(対象はアクティブなレール)
 	void ToggleShowControlPointModels();

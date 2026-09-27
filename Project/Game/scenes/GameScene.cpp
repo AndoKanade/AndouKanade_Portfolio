@@ -3,7 +3,6 @@
 #include "ImGuiManager.h"
 #include "ModelManager.h"
 #include "ParticleManager.h"
-#include "SoundManager.h"
 #include "SceneManager.h"
 #include "TextureManager.h"
 #include "Skybox.h"
@@ -15,7 +14,6 @@
 #include "Sprite.h"
 #include "WinAPI.h"
 #include "Application.h"
-#include "Logger.h"
 #include "GlobalVariables.h"
 #include "EditorWidgets.h"
 #include "EditorContext.h"
@@ -96,8 +94,7 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 		// 第3引数はデフォルト値。保存済みJSONがあればそちらが優先される(AddItemは未登録キーのみ追加)
 		gv->AddItem(kGameSceneGroup,"railSpeed",railSpeed_);
 		gv->AddItem(kGameSceneGroup,"cameraHeightOffset",kCameraHeightOffset_);
-		// 照準(エイム)まわりの手触り調整用パラメータ
-		// 矢印キーはレール分岐操作に使用するため、照準操作はマウスで行う想定
+		// 照準(エイム)まわりの手触り調整用パラメータ(照準操作はマウスで行う)
 		gv->AddItem(kGameSceneGroup,"mouseSensitivity",kMouseSensitivity_); // マウス1移動量あたりの回転量(ラジアン)
 		gv->AddItem(kGameSceneGroup,"aimYawLimit",kAimYawLimit_);         // 左右の可動範囲
 		gv->AddItem(kGameSceneGroup,"aimPitchLimit",kAimPitchLimit_);     // 上下の可動範囲
@@ -609,7 +606,7 @@ void GameScene::Update(){
 		// プレイヤーの自立(ジャンプ+WASD移動)
 		// オンレール中はジャンプ入力でレールを離れて自由移動状態に切り替え、
 		// オフレール中はWASDでの水平移動と重力・ジャンプ初速による垂直移動を行い、
-		// レール座標によるオンレール判定(優先度1で実装)を使って着地先レールへ再度乗り移る
+		// レール座標によるオンレール判定を使って着地先レールへ再度乗り移る
 		if(isPlayMode && input_ && railEditor_){
 			if(isOnRail_){
 				// ジャンプキー(LSHIFT)でレールを離れ、自由移動状態に切り替える
@@ -643,7 +640,6 @@ void GameScene::Update(){
 				// 落下中のみ着地判定を行う(上昇中に離脱直後の位置へ即座に再着地しないようにする)
 				if(freeVelocityY_ <= 0.0f){
 					RailEditor::NearestRailResult nearest = railEditor_->FindNearestRail(freePosition_);
-					// 着地判定を細かくする
 					// 距離1つ(球状の判定)だとレールの横や上にいるだけで乗ってしまうため、
 					// 「水平方向でレールの真上にいる」ことと「落下でレールの高さを跨いだ」ことの両方を条件にする
 					if(nearest.railIndex >= 0){
@@ -793,7 +789,7 @@ void GameScene::Update(){
 		useDebugTopCamera_ = !useDebugTopCamera_;
 		Camera* switchedCamera = CameraManager::GetInstance()->GetCamera(useDebugTopCamera_?"debug_top":"default");
 		CameraManager::GetInstance()->SetActiveCamera(useDebugTopCamera_?"debug_top":"default");
-		// SetCamera()を毎フレーム呼んでいないフェンスや地面等のオブジェクトは
+		// SetCamera()を毎フレーム呼んでいないオブジェクトは
 		// object3dCommon_のdefaultCamera_を参照し続けるため、こちらも切り替えないと追従しない
 		if(switchedCamera && object3dCommon_){
 			object3dCommon_->SetDefaultCamera(switchedCamera);
