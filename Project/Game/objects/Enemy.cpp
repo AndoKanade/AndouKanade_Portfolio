@@ -10,9 +10,12 @@
 namespace{
 	// 雑魚敵の表示に使用するモデル(プレイヤーと区別できるよう別のモーションのモデルを使う)
 	const std::string kEnemyModelPath = "human/sneakWalk.gltf";
-	// ここから追加: 敵弾の表示に使用するモデル
+
+	// 敵弾の表示に使用するモデル
 	const std::string kEnemyBulletModelPath = "Sphere/sphere.obj";
-	// ここまで追加
+
+	// 敵弾の色(自機の弾が青なので、区別できるよう赤にする)
+	constexpr Vector4 kEnemyBulletColor = {1.0f, 0.2f, 0.2f, 1.0f};
 }
 
 Enemy::Enemy() = default;
@@ -29,11 +32,10 @@ void Enemy::Initialize(Obj3dCommon* objCommon,const Vector3& basePosition,const 
 	basePosition_ = basePosition;
 	patrolDirection_ = Normalize(patrolDirection);
 
-	// ここから追加: 体力の最大値を設定する(Reset()で現在の体力がこの値まで回復する)
+	// 体力の最大値を設定する(Reset()で現在の体力がこの値まで回復する)
 	SetMaxHp(maxHp);
-	// ここまで追加
 
-	// ここから追加: 敵弾の生成
+	// 敵弾の生成
 	// 発射のたびに生成すると無駄な処理が毎フレーム発生するため、ここで最大数ぶんまとめて作り、以降は使い回す
 	ModelManager::GetInstance()->LoadModel(kEnemyBulletModelPath);
 	bullets_.resize(kMaxBulletCount);
@@ -42,8 +44,12 @@ void Enemy::Initialize(Obj3dCommon* objCommon,const Vector3& basePosition,const 
 		bullet.obj->Initialize(objCommon);
 		bullet.obj->SetModel(kEnemyBulletModelPath);
 		bullet.obj->SetScale({kBulletScale, kBulletScale, kBulletScale});
+
+		// 弾の色は生成時に一度設定するだけでよいため、ここで赤にしておく
+		if(Model::Material* material = bullet.obj->GetMaterial()){
+			material->color = kEnemyBulletColor;
+		}
 	}
-	// ここまで追加
 
 	Reset();
 }
@@ -57,29 +63,33 @@ void Enemy::Reset(){
 	isAlive_ = true;
 	isDetectingPlayer_ = false;
 
-	// ここから追加: 体力を最大値まで戻す
+	// 体力を最大値まで戻す
 	hp_ = maxHp_;
-	// ここまで追加
 
-	// ここから追加: 発射済みの弾をすべて未使用に戻し、発射間隔も初期化する
+	// 発射済みの弾をすべて未使用に戻し、発射間隔も初期化する
 	for(auto& bullet : bullets_){
 		bullet.isAlive = false;
 		bullet.lifeTime = 0.0f;
+
+		// 追尾情報も消して、再利用した弾が前回の設定を引きずらないようにする
+		bullet.isHoming = false;
+		bullet.speed = 0.0f;
 	}
-	shotTimer_ = kShotInterval;
-	// ここまで追加
+
+	// 攻撃の種類も先頭(単発)に戻してから、その種類の発射間隔で待ち時間を初期化する
+	attackIndex_ = 0;
+	shotTimer_ = GetCurrentShotInterval();
 }
 
 // 撃破する
 void Enemy::Kill(){
 	isAlive_ = false;
 
-	// ここから追加: 撃破時は体力も0にして、表示と状態を食い違わせないようにする
+	// 撃破時は体力も0にして、表示と状態を食い違わせないようにする
 	hp_ = 0;
-	// ここまで追加
 }
 
-// ここから追加: 体力を減らす(撃破されたときtrueを返す)
+// 体力を減らす(撃破されたときtrueを返す)
 bool Enemy::TakeDamage(int damage){
 	// 撃破済みの敵はこれ以上体力が減らない
 	if(!isAlive_){
@@ -95,23 +105,20 @@ bool Enemy::TakeDamage(int damage){
 
 	return false;
 }
-// ここまで追加
 
-// ここから追加: 往復移動の中心座標を設定する(現在の往復位置を保ったまま移動させる)
+// 往復移動の中心座標を設定する(現在の往復位置を保ったまま移動させる)
 void Enemy::SetBasePosition(const Vector3& basePosition){
 	basePosition_ = basePosition;
 	position_ = basePosition_ + patrolDirection_ * patrolOffset_;
 }
-// ここまで追加
 
-// ここから追加: 往復移動の方向を設定する(内部で正規化する)
+// 往復移動の方向を設定する(内部で正規化する)
 void Enemy::SetPatrolDirection(const Vector3& patrolDirection){
 	patrolDirection_ = Normalize(patrolDirection);
 	position_ = basePosition_ + patrolDirection_ * patrolOffset_;
 }
-// ここまで追加
 
-// ここから追加: 体力の最大値を設定する(現在の体力が最大値を超える場合は最大値に合わせる)
+// 体力の最大値を設定する(現在の体力が最大値を超える場合は最大値に合わせる)
 void Enemy::SetMaxHp(int maxHp){
 	// 0以下だと生成直後に撃破された状態になってしまうため下限で制限する
 	maxHp_ = (maxHp < kMinMaxHp)?kMinMaxHp:maxHp;
@@ -119,13 +126,12 @@ void Enemy::SetMaxHp(int maxHp){
 		hp_ = maxHp_;
 	}
 }
-// ここまで追加
 
 // 更新処理
 void Enemy::Update(const Vector3& playerPosition,float deltaTime){
-	// ここから追加: 撃破済みでも発射済みの弾は飛び続けさせるため、弾の更新は本体より先に行う
-	UpdateBullets(deltaTime);
-	// ここまで追加
+	// 撃破済みでも発射済みの弾は飛び続けさせるため、弾の更新は本体より先に行う
+	// 追尾弾の向き補正にプレイヤー座標が必要なため、そのまま渡す
+	UpdateBullets(playerPosition,deltaTime);
 
 	// 撃破済みのときは移動も向きの更新も行わない
 	if(!isAlive_){
@@ -148,19 +154,22 @@ void Enemy::Update(const Vector3& playerPosition,float deltaTime){
 	Vector3 toPlayer = playerPosition - position_;
 	isDetectingPlayer_ = (Length(toPlayer) <= kDetectionRange);
 
-	// ここから追加: 弾の発射処理
+	// 弾の発射処理
 	// プレイヤーを検知している間だけ、一定間隔でプレイヤーへ向けて撃つ
+	// 1回撃つごとに攻撃の種類を次へ進め、単発・3方向拡散・追尾弾を順番に使う
 	if(isDetectingPlayer_){
 		shotTimer_ -= deltaTime;
 		if(shotTimer_ <= 0.0f){
-			FireBullet(playerPosition);
-			shotTimer_ = kShotInterval;
+			FireCurrentAttack(playerPosition);
+
+			// 次の攻撃へ切り替え、その攻撃の発射間隔で待ち時間を設定する
+			attackIndex_ = (attackIndex_ + 1) % kAttackOrderCount;
+			shotTimer_ = GetCurrentShotInterval();
 		}
 	} else{
 		// 非検知中は撃たない。次に検知した直後に即撃ちされないよう、待ち時間を戻しておく
-		shotTimer_ = kShotInterval;
+		shotTimer_ = GetCurrentShotInterval();
 	}
-	// ここまで追加
 
 	// 向きの決定
 	// 検知中はプレイヤーの方向、非検知中は移動している方向を向く
@@ -192,17 +201,16 @@ void Enemy::Draw(){
 		obj_->Draw();
 	}
 
-	// ここから追加: 発射中の弾を描画する
+	// 発射中の弾を描画する
 	for(auto& bullet : bullets_){
 		if(bullet.isAlive && bullet.obj){
 			bullet.obj->Draw();
 		}
 	}
-	// ここまで追加
 }
 
-// ここから追加: 弾の更新処理(移動・寿命切れの判定・描画用トランスフォームの更新)
-void Enemy::UpdateBullets(float deltaTime){
+// 弾の更新処理(移動・追尾の向き補正・寿命切れの判定・描画用トランスフォームの更新)
+void Enemy::UpdateBullets(const Vector3& playerPosition,float deltaTime){
 	// アクティブカメラは全弾で共通なので、ループの外で一度だけ取得する
 	Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera();
 
@@ -210,6 +218,26 @@ void Enemy::UpdateBullets(float deltaTime){
 		// 未使用の弾は移動も描画更新も不要
 		if(!bullet.isAlive){
 			continue;
+		}
+
+		// 追尾弾の向き補正
+		// 現在の進行方向をプレイヤー方向へ少しずつ寄せることで、急に折れ曲がらない緩やかな追尾にする
+		if(bullet.isHoming){
+			Vector3 toPlayer = playerPosition - bullet.position;
+			if(Length(toPlayer) > 1e-5f){
+				Vector3 currentDirection = Normalize(bullet.velocity);
+				Vector3 targetDirection = Normalize(toPlayer);
+
+				// 1フレームで補正する割合(1.0を超えると一気に向き切り替わってしまうため上限で制限する)
+				float turnRatio = kHomingTurnRate * deltaTime;
+				if(turnRatio > 1.0f){
+					turnRatio = 1.0f;
+				}
+
+				// 速さは保ったまま向きだけを変える
+				Vector3 newDirection = Normalize(currentDirection + (targetDirection - currentDirection) * turnRatio);
+				bullet.velocity = newDirection * bullet.speed;
+			}
 		}
 
 		// 等速直線運動で前進させる(プレイヤーが避けやすいよう重力は掛けない)
@@ -232,36 +260,92 @@ void Enemy::UpdateBullets(float deltaTime){
 		}
 	}
 }
-// ここまで追加
 
-// ここから追加: プレイヤーへ向けて弾を1発発射する
-void Enemy::FireBullet(const Vector3& playerPosition){
+// 現在の攻撃の種類に応じた発射処理を行う
+void Enemy::FireCurrentAttack(const Vector3& playerPosition){
+	// 発射位置と、そこからプレイヤーへ向かう方向は全ての攻撃で共通なので先に求める
+	Vector3 spawnPosition = GetBulletSpawnPosition();
+
+	Vector3 toPlayer = playerPosition - spawnPosition;
+	if(Length(toPlayer) < 1e-5f){
+		return; // プレイヤーと発射位置がほぼ同じ場合は方向が定まらないため撃たない
+	}
+	Vector3 baseDirection = Normalize(toPlayer);
+
+	switch(kAttackOrder[attackIndex_]){
+	case AttackType::Spread3:
+	{
+		// プレイヤー方向を中心に、Y軸回転で左右へ角度をつけた弾を同時発射する
+		// 中央の弾を基準(添字kSpreadBulletCount / 2)として、そこからのずれ分だけ角度をつける
+		const int centerIndex = kSpreadBulletCount / 2;
+		for(int i = 0; i < kSpreadBulletCount; ++i){
+			float angle = static_cast<float>(i - centerIndex) * kSpreadAngle;
+
+			// Y軸回転でXZ平面上の向きだけを回す(上下の角度は中央の弾と同じにする)
+			float cosAngle = std::cos(angle);
+			float sinAngle = std::sin(angle);
+			Vector3 direction = {
+				baseDirection.x * cosAngle + baseDirection.z * sinAngle,
+				baseDirection.y,
+				-baseDirection.x * sinAngle + baseDirection.z * cosAngle
+			};
+
+			FireBullet(spawnPosition,direction,kBulletSpeed,false);
+		}
+		break;
+	}
+	case AttackType::Homing:
+		// 発射後もプレイヤーを追い続ける弾を1発だけ撃つ
+		FireBullet(spawnPosition,baseDirection,kHomingBulletSpeed,true);
+		break;
+
+	case AttackType::Single:
+	default:
+		// 発射した瞬間のプレイヤー位置へ向かって直進する弾を1発撃つ
+		FireBullet(spawnPosition,baseDirection,kBulletSpeed,false);
+		break;
+	}
+}
+
+// 現在の攻撃の種類に応じた発射間隔(秒)を取得する
+float Enemy::GetCurrentShotInterval() const{
+	switch(kAttackOrder[attackIndex_]){
+	case AttackType::Spread3:
+		return kSpreadShotInterval;
+	case AttackType::Homing:
+		return kHomingShotInterval;
+	case AttackType::Single:
+	default:
+		return kShotInterval;
+	}
+}
+
+// 弾の発射位置(敵の中心より少し上=胸の高さ)を取得する
+Vector3 Enemy::GetBulletSpawnPosition() const{
+	Vector3 spawnPosition = position_;
+	spawnPosition.y += kBulletSpawnUpOffset;
+	return spawnPosition;
+}
+
+// 指定した方向へ弾を1発発射する
+void Enemy::FireBullet(const Vector3& spawnPosition,const Vector3& direction,float speed,bool isHoming){
 	// 未使用の弾を探して使い回す(全弾使用中のときは発射しない)
 	for(auto& bullet : bullets_){
 		if(bullet.isAlive){
 			continue;
 		}
 
-		// 発射位置は敵の中心より少し上(胸の高さ)にする
-		Vector3 spawnPosition = position_;
-		spawnPosition.y += kBulletSpawnUpOffset;
-
-		// 発射した瞬間のプレイヤー位置へ向かう方向を求める(以降は追尾しない)
-		Vector3 toPlayer = playerPosition - spawnPosition;
-		if(Length(toPlayer) < 1e-5f){
-			return; // プレイヤーと発射位置がほぼ同じ場合は方向が定まらないため撃たない
-		}
-
 		bullet.position = spawnPosition;
-		bullet.velocity = Normalize(toPlayer) * kBulletSpeed;
+		bullet.velocity = Normalize(direction) * speed;
+		bullet.speed = speed;
+		bullet.isHoming = isHoming;
 		bullet.lifeTime = 0.0f;
 		bullet.isAlive = true;
 		return;
 	}
 }
-// ここまで追加
 
-// ここから追加: 発射済みの弾とプレイヤーの当たり判定
+// 発射済みの弾とプレイヤーの当たり判定
 int Enemy::CheckHitToPlayer(const Vector3& playerPosition,float playerHitRadius){
 	int hitCount = 0;
 
@@ -279,9 +363,8 @@ int Enemy::CheckHitToPlayer(const Vector3& playerPosition,float playerHitRadius)
 
 	return hitCount;
 }
-// ここまで追加
 
-// ここから追加: 発射済みで生存している弾の数を取得(デバッグ表示用)
+// 発射済みで生存している弾の数を取得(デバッグ表示用)
 int Enemy::GetActiveBulletCount() const{
 	int count = 0;
 	for(const auto& bullet : bullets_){
@@ -291,4 +374,3 @@ int Enemy::GetActiveBulletCount() const{
 	}
 	return count;
 }
-// ここまで追加
