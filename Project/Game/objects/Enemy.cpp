@@ -16,6 +16,9 @@ namespace{
 
 	// 敵弾の色(自機の弾が青なので、区別できるよう赤にする)
 	constexpr Vector4 kEnemyBulletColor = {1.0f, 0.2f, 0.2f, 1.0f};
+
+	// 雑魚敵の体の色(自機と区別できるよう、弾と同系統の赤にする)
+	constexpr Vector4 kEnemyColor = {1.0f, 0.3f, 0.3f, 1.0f};
 }
 
 Enemy::Enemy() = default;
@@ -28,6 +31,11 @@ void Enemy::Initialize(Obj3dCommon* objCommon,const Vector3& basePosition,const 
 	obj_ = std::make_unique<Obj3D>();
 	obj_->Initialize(objCommon);
 	obj_->SetModel(kEnemyModelPath);
+
+	// 体の色は生成時に一度設定するだけでよいため、ここで赤にしておく
+	if(Model::Material* material = obj_->GetMaterial()){
+		material->color = kEnemyColor;
+	}
 
 	basePosition_ = basePosition;
 	patrolDirection_ = Normalize(patrolDirection);

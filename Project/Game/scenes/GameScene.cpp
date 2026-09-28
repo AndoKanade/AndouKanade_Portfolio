@@ -41,6 +41,9 @@ namespace{
 	// 自機の弾の色(敵弾が赤なので、区別できるよう青にする)
 	constexpr Vector4 kPlayerBulletColor = {0.2f, 0.4f, 1.0f, 1.0f};
 
+	// 自機の体の色(敵と区別できるよう、弾と同系統の青にする)
+	constexpr Vector4 kPlayerColor = {0.3f, 0.5f, 1.0f, 1.0f};
+
 	// 撃破演出(パーティクル)に使用するテクスチャパス
 	const std::string kHitParticleTexture = "resource/circle.png";
 	// ParticleManager::EmitSpark()が内部で使用するグループ名と合わせる必要がある
@@ -76,6 +79,9 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	railEditor_ = std::make_unique<RailEditor>();
 	railEditor_->Initialize(object3dCommon_);
 
+	// 着地できる範囲の可視化に、着地判定で使っている許容距離をそのまま渡す
+	railEditor_->SetLandingRangeRadius(kOnRailHorizontalThreshold_);
+
 	// 簡易的な地面の生成(レールの座標を基準に並べるため、レールエディターの初期化後に行う)
 	CreateGroundTiles();
 
@@ -84,6 +90,11 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	player_ = std::make_unique<Obj3D>();
 	player_->Initialize(object3dCommon_);
 	player_->SetModel("human/walk.gltf");
+
+	// 体の色は生成時に一度設定するだけでよいため、ここで青にしておく
+	if(Model::Material* material = player_->GetMaterial()){
+		material->color = kPlayerColor;
+	}
 
 	// 調整項目(GlobalVariables)にゲームプレイ用パラメータを登録
 	// ImGuiの "Global Variables" ウィンドウから実行中に編集・保存でき、
