@@ -240,7 +240,9 @@
     <ClCompile Include="Game\objects\Enemy.cpp">
       <Filter>ソース ファイル\Game\objects</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\Manager\GlobalVariables.cpp" />
+    <ClCompile Include="Engine\Manager\GlobalVariables.cpp">
+      <Filter>ソース ファイル\Engine\Manager</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\Base\D3DResourceLeakChecker.h">
@@ -381,12 +383,14 @@
     <ClInclude Include="Game\objects\Enemy.h">
       <Filter>ヘッダー ファイル\Game\objects</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\Manager\GlobalVariables.h" />
     <ClInclude Include="Engine\Manager\EditorContext.h">
       <Filter>ヘッダー ファイル\Game\Editor</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Manager\EditorWidgets.h">
       <Filter>ヘッダー ファイル\Game\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Manager\GlobalVariables.h">
+      <Filter>ヘッダー ファイル\Engine\Manager</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
