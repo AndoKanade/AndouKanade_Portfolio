@@ -45,7 +45,11 @@ private:
 	EditorContext(const EditorContext&) = delete;
 	EditorContext& operator=(const EditorContext&) = delete;
 
+#ifdef USE_IMGUI
 	bool isPlayMode_ = false;     // 起動時は編集モード
+#else
+	bool isPlayMode_ = true;      // ImGuiが無い(Release)ときは編集UIを使えないため、起動時から実行モードにする
+#endif
 	float editViewScale_ = 0.6f;  // 編集モードの縮小率(将来用)
 	EditorRect sceneViewRect_{};  // 中央Sceneパネルの領域
 };
