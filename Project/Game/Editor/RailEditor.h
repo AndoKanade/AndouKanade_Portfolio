@@ -70,6 +70,10 @@ public:
 	void ToggleShowControlPointModels();
 	void ToggleShowCurve();
 
+	// 着地できる範囲の描画に使う水平方向の許容距離を設定する
+	// 判定値そのものはGameScene側が持っているため、同じ値を二重に持たないよう外から渡してもらう
+	void SetLandingRangeRadius(float radius){ landingRangeRadius_ = radius; }
+
 	// アクティブなレールの全制御点の中心座標を取得
 	Vector3 GetControlPointsCenter() const;
 	// アクティブなレールの全制御点を囲む範囲の半径を取得
@@ -87,6 +91,11 @@ private:
 		std::vector<ControlPoint> controlPoints;            // 制御点を保存する配列
 		std::vector<std::unique_ptr<Obj3D>> pointObjects;   // 制御点描画用の3Dオブジェクト群
 		std::vector<std::unique_ptr<Obj3D>> curveObjects;   // レール曲線サンプリング点描画用のオブジェクト群(固定数)
+
+		// 着地できる範囲(レールの左右へ許容距離ぶん離れた位置)を示す点列
+		// 1サンプルにつき左右2個使うため、要素数はkLandingRangeSampleCountの2倍で固定する
+		std::vector<std::unique_ptr<Obj3D>> landingRangeObjects;
+
 		bool showControlPointModels = true;                 // 制御点の球体モデルの描画フラグ
 		bool showCurve = true;                              // 曲線表示フラグ
 	};
@@ -115,10 +124,20 @@ private:
 	// Hierarchy的な一覧(制御点リスト)で選択中の制御点インデックス(-1: 未選択)
 	int selectedPointIndex_ = -1;
 
+	// 着地できる範囲の表示ON/OFF(全レールまとめて切り替える。ImGuiのチェックボックスから操作する)
+	bool showLandingRange_ = false;
+	// 着地できる範囲の水平方向の許容距離(GameSceneの判定値をSetLandingRangeRadius()で受け取る)
+	float landingRangeRadius_ = kDefaultLandingRangeRadius;
+
 	Obj3dCommon* objCommon_ = nullptr; // 3Dオブジェクト共通設定へのポインタ
 
 	// レール曲線可視化のサンプリング分割数
 	static constexpr int kCurveSampleCount = 100;
+
+	// 着地できる範囲の可視化のサンプリング分割数(左右2列ぶん描くため曲線より粗くする)
+	static constexpr int kLandingRangeSampleCount = 50;
+	// 着地できる範囲の水平方向の許容距離の初期値(SetLandingRangeRadius()で上書きされる)
+	static constexpr float kDefaultLandingRangeRadius = 1.0f;
 
 	// 最近傍点探索用の定数
 	// 粗いサンプリングの分割数(精度と負荷のバランスをとった値)

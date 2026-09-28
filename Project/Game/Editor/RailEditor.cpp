@@ -26,6 +26,19 @@ namespace{
 	constexpr Vector4 kActiveRailColor = {1.0f, 0.9f, 0.1f, 1.0f};
 	// 乗っていないレールの色(黒)
 	constexpr Vector4 kInactiveRailColor = {0.0f, 0.0f, 0.0f, 1.0f};
+
+	// 着地できる範囲を示す点列の色(レール本体と区別できるよう緑にする)
+	constexpr Vector4 kLandingRangeColor = {0.2f, 1.0f, 0.4f, 1.0f};
+
+	// 制御点の球の表示スケール
+	constexpr float kControlPointScale = 0.2f;
+	// レール曲線のサンプリング点の表示スケール(線のように見せるため制御点より小さくする)
+	constexpr float kCurveScale = 0.04f;
+	// 着地できる範囲のサンプリング点の表示スケール
+	constexpr float kLandingRangeScale = 0.06f;
+
+	// 進行方向を前後の座標の差分で求めるときに使う、進行度tの刻み幅
+	constexpr float kForwardSampleDelta = 0.01f;
 }
 
 RailEditor::RailEditor() = default;
@@ -61,6 +74,13 @@ void RailEditor::AddRail(){
 	rail.curveObjects.reserve(kCurveSampleCount);
 	for(int i = 0; i < kCurveSampleCount; ++i){
 		rail.curveObjects.push_back(CreatePointObject());
+	}
+
+	// 着地できる範囲可視化用のオブジェクトも固定数だけ生成しておく(1サンプルにつき左右2個)
+	const int landingRangeObjectCount = kLandingRangeSampleCount * 2;
+	rail.landingRangeObjects.reserve(landingRangeObjectCount);
+	for(int i = 0; i < landingRangeObjectCount; ++i){
+		rail.landingRangeObjects.push_back(CreatePointObject());
 	}
 
 	rails_.push_back(std::move(rail));
@@ -144,6 +164,9 @@ void RailEditor::Update(){
 	ImGui::Checkbox("Show Control Point Models",&activeRail.showControlPointModels);
 	// レール曲線(サンプリング点列)の表示ON/OFF切り替え
 	ImGui::Checkbox("Show Rail Curve",&activeRail.showCurve);
+	// ジャンプしてレールに着地できる範囲の表示ON/OFF切り替え(全レールまとめて切り替わる)
+	ImGui::Checkbox("Show Landing Range",&showLandingRange_);
+	ImGui::TextDisabled("(着地できる水平方向の許容距離: %.2f)",landingRangeRadius_);
 
 	ImGui::Separator();
 
@@ -239,8 +262,8 @@ void RailEditor::Draw(){
 			// 制御点ごとに専用の3Dオブジェクトで描画
 			for(size_t i = 0; i < rail.controlPoints.size(); ++i){
 				rail.pointObjects[i]->SetTranslate(rail.controlPoints[i].position);
-				// 視認性向上のためスケールを縮小
-				rail.pointObjects[i]->SetScale({0.5f, 0.5f, 0.5f});
+				// 他のオブジェクトを隠さないよう、球はレールの目印として分かる程度の小ささにする
+				rail.pointObjects[i]->SetScale({kControlPointScale, kControlPointScale, kControlPointScale});
 				if(Model::Material* mat = rail.pointObjects[i]->GetMaterial()){
 					mat->color = railColor;
 				}
@@ -264,7 +287,7 @@ void RailEditor::Draw(){
 
 				rail.curveObjects[i]->SetTranslate(pos);
 				// 制御点よりさらに小さくして、線のように見せる
-				rail.curveObjects[i]->SetScale({0.04f, 0.04f, 0.04f});
+				rail.curveObjects[i]->SetScale({kCurveScale, kCurveScale, kCurveScale});
 				if(Model::Material* mat = rail.curveObjects[i]->GetMaterial()){
 					mat->color = railColor;
 				}
@@ -275,6 +298,50 @@ void RailEditor::Draw(){
 
 				rail.curveObjects[i]->Update();
 				rail.curveObjects[i]->Draw();
+			}
+		}
+
+		// ジャンプしてレールに着地できる範囲を可視化する
+		// 判定は「レール最近傍点から水平方向にlandingRangeRadius_以内」なので、
+		// レールの左右へその距離ぶん離した2列の点列を描いて範囲の境界を示す
+		if(showLandingRange_ && rail.controlPoints.size() >= 4){
+			for(int i = 0; i < kLandingRangeSampleCount; ++i){
+				float t = static_cast<float>(i) / static_cast<float>(kLandingRangeSampleCount - 1);
+				Vector3 pos = ComputePositionOnRail(rail.controlPoints,t);
+
+				// 進行方向を前後の座標の差分から求める(端では範囲外へ出ないようtを丸める)
+				float tPrev = (t - kForwardSampleDelta < 0.0f)?0.0f:t - kForwardSampleDelta;
+				float tNext = (t + kForwardSampleDelta > 1.0f)?1.0f:t + kForwardSampleDelta;
+				Vector3 forward = ComputePositionOnRail(rail.controlPoints,tNext) - ComputePositionOnRail(rail.controlPoints,tPrev);
+
+				// 判定は水平方向(XZ平面)のみで行うため、進行方向に垂直な水平ベクトルを求める
+				Vector3 horizontalRight = {forward.z, 0.0f, -forward.x};
+				if(Length(horizontalRight) <= 0.0f){
+					// 真下・真上を向いている区間では左右が決まらないため描画を飛ばす
+					continue;
+				}
+				horizontalRight = Normalize(horizontalRight) * landingRangeRadius_;
+
+				// 左右1組を、まとめて確保しておいたオブジェクトの連続した2要素に割り当てる
+				Obj3D* rightObject = rail.landingRangeObjects[i * 2].get();
+				Obj3D* leftObject = rail.landingRangeObjects[i * 2 + 1].get();
+
+				rightObject->SetTranslate(pos + horizontalRight);
+				leftObject->SetTranslate(pos - horizontalRight);
+
+				for(Obj3D* rangeObject : {rightObject, leftObject}){
+					rangeObject->SetScale({kLandingRangeScale, kLandingRangeScale, kLandingRangeScale});
+					if(Model::Material* mat = rangeObject->GetMaterial()){
+						mat->color = kLandingRangeColor;
+					}
+
+					if(activeCamera){
+						rangeObject->SetCamera(activeCamera);
+					}
+
+					rangeObject->Update();
+					rangeObject->Draw();
+				}
 			}
 		}
 	}
