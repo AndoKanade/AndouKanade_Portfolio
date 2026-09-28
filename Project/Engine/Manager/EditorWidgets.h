@@ -101,7 +101,11 @@ namespace EditorWidgets{
 	// -----------------------------------------------------------------------
 	struct PanelRect{ float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f; };
 	struct Layout{
-		PanelRect toolbar, hierarchy, railEditor, inspector, globalVars, sceneView, bottomLeft, bottomRight;
+		// ここから変更: 下段に並ぶパネルが4枚(GameScene Debug / Target Editor / Enemy Editor / PostProcess Settings)になったため、
+		// 下段を4分割して重ならないようにする
+		PanelRect toolbar, hierarchy, railEditor, inspector, globalVars, sceneView;
+		PanelRect bottomLeft, bottomCenterLeft, bottomCenterRight, bottomRight;
+		// ここまで変更
 	};
 
 #ifdef USE_IMGUI
@@ -131,8 +135,16 @@ namespace EditorWidgets{
 		L.inspector   = {ox + W - rightW,               oy + contentY,         rightW,                 half};
 		L.globalVars  = {ox + W - rightW,               oy + contentY + half,  rightW,                 contentH - half};
 		L.sceneView   = {ox + centerX,                  oy + contentY,         centerW,                contentH - bottomH};
-		L.bottomLeft  = {ox + centerX,                  oy + H - bottomH,      centerW * 0.5f,         bottomH};
-		L.bottomRight = {ox + centerX + centerW * 0.5f, oy + H - bottomH,      centerW - centerW*0.5f, bottomH};
+
+		// ここから変更: 下段を4等分して、パネル同士が重なって見えなくなるのを防ぐ
+		// 右端のパネルだけは割り算の余りを含めた幅にして、下段に隙間ができないようにする
+		const float bottomW = centerW * 0.25f;
+		L.bottomLeft        = {ox + centerX,                       oy + H - bottomH, bottomW,                       bottomH};
+		L.bottomCenterLeft  = {ox + centerX + bottomW,             oy + H - bottomH, bottomW,                       bottomH};
+		L.bottomCenterRight = {ox + centerX + bottomW * 2.0f,      oy + H - bottomH, bottomW,                       bottomH};
+		L.bottomRight       = {ox + centerX + bottomW * 3.0f,      oy + H - bottomH, centerW - bottomW * 3.0f,      bottomH};
+		// ここまで変更
+
 		return L;
 	}
 

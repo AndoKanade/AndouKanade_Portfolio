@@ -6,6 +6,9 @@
 #include "TitleScene.h"
 #include "GameScene.h"
 #include "ClearScene.h"
+// ここから追加: ゲームオーバー画面
+#include "GameOverScene.h"
+// ここまで追加
 
 // std::make_unique用
 #include <memory>
@@ -28,7 +31,13 @@ std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneNam
 		return std::make_unique<ClearScene>();
 	}
 
-	// 4. 該当するシーン名がない場合
+	// ここから追加: 4. ゲームオーバー画面
+	if(sceneName == "GAMEOVER"){
+		return std::make_unique<GameOverScene>();
+	}
+	// ここまで追加
+
+	// 5. 該当するシーン名がない場合
 	// 予期せぬ文字列が来た場合は nullptr を返してエラー扱いにします
 	return nullptr;
 }

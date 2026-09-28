@@ -22,17 +22,10 @@ namespace{
 	// 制御点リセット用のデフォルト値(初期制御点/Add Control Pointボタンと同じ初期値)
 	constexpr RailEditor::ControlPoint kDefaultControlPoint = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 1.0f};
 
-	// レールごとの色分け用パレット(レール数がパレット数を超えたら循環して使う)
-	constexpr Vector4 kRailColorPalette[] = {
-		{1.0f, 1.0f, 1.0f, 1.0f}, // Rail 0: 白
-		{0.3f, 0.6f, 1.0f, 1.0f}, // Rail 1: 水色
-		{1.0f, 0.4f, 0.8f, 1.0f}, // Rail 2: ピンク
-		{0.6f, 1.0f, 0.4f, 1.0f}, // Rail 3: 黄緑
-	};
-	constexpr int kRailColorPaletteCount = 4;
-
-	// 分岐先として乗り移り可能になったレールを強調する色(目立つ黄色)
-	constexpr Vector4 kHighlightColor = {1.0f, 0.9f, 0.1f, 1.0f};
+	// 今乗っている(アクティブな)レールの色(目立つ黄色)
+	constexpr Vector4 kActiveRailColor = {1.0f, 0.9f, 0.1f, 1.0f};
+	// 乗っていないレールの色(黒)
+	constexpr Vector4 kInactiveRailColor = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 
 RailEditor::RailEditor() = default;
@@ -234,15 +227,12 @@ void RailEditor::Draw(){
 	// Playモード中もレール(制御点の球・曲線)を見えるようにする
 	Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera();
 
-	// レール間分岐移動を目視確認できるよう、アクティブなレールだけでなく全レールを描画する
-	// レールごとに色を分け、分岐先として強調指定されているレールは目立つ色で上書きする
+	// レールの乗り換えを目視確認できるよう、アクティブなレールだけでなく全レールを描画する
+	// 今乗っているレールは目立つ色、それ以外は黒で描画する
 	for(size_t railIndex = 0; railIndex < rails_.size(); ++railIndex){
 		Rail& rail = rails_[railIndex];
 
-		Vector4 railColor = kRailColorPalette[railIndex % kRailColorPaletteCount];
-		if(static_cast<int>(railIndex) == highlightedRailIndex_){
-			railColor = kHighlightColor;
-		}
+		Vector4 railColor = (static_cast<int>(railIndex) == activeRailIndex_)?kActiveRailColor:kInactiveRailColor;
 
 		// 表示OFFのときは制御点のモデルを描画しない
 		if(rail.showControlPointModels){
@@ -322,8 +312,6 @@ Vector3 RailEditor::GetPositionOnRail(float t) const{
 	return ComputePositionOnRail(rails_[activeRailIndex_].controlPoints,t);
 }
 
-// ここから追加: レール座標によるオンレール判定用のAPI
-
 // 指定ワールド座標に最も近いレール上の進行度tを計算する
 // 手順: まずkNearestSearchSampleCount分割で粗くサンプリングして最も近い点を求め、
 // その前後の区間だけをkNearestRefineIterationCount回の三分探索で絞り込み、精度を上げる
@@ -371,18 +359,6 @@ float RailEditor::ComputeNearestTOnRail(const std::vector<ControlPoint>& control
 	return (lo + hi) * 0.5f;
 }
 
-// 指定ワールド座標に最も近いレール上の進行度t(0〜1)を求める(対象はアクティブなレール)
-float RailEditor::FindNearestTOnRail(const Vector3& worldPos) const{
-	return ComputeNearestTOnRail(rails_[activeRailIndex_].controlPoints,worldPos);
-}
-
-// 指定ワールド座標からレール上の最近傍点までの距離を求める(対象はアクティブなレール)
-float RailEditor::GetDistanceToRail(const Vector3& worldPos) const{
-	float nearestT = FindNearestTOnRail(worldPos);
-	Vector3 nearestPos = GetPositionOnRail(nearestT);
-	return Distance(nearestPos,worldPos);
-}
-
 // 全レールの中から、指定したワールド座標に最も近いレール・進行度・距離を求める(着地先レールの探索用)
 RailEditor::NearestRailResult RailEditor::FindNearestRail(const Vector3& worldPos) const{
 	NearestRailResult result;
@@ -398,12 +374,12 @@ RailEditor::NearestRailResult RailEditor::FindNearestRail(const Vector3& worldPo
 			result.railIndex = static_cast<int>(i);
 			result.t = t;
 			result.distance = distance;
+			result.position = nearestPos;
 		}
 	}
 
 	return result;
 }
-// ここまで追加
 
 // 進行度t(0〜1)からレール上の回転(オイラー角)を取得(対象はアクティブなレール)
 Vector3 RailEditor::GetRotationOnRail(float t) const{
@@ -508,11 +484,6 @@ int RailEditor::GetRailCount() const{
 	return static_cast<int>(rails_.size());
 }
 
-// 分岐先として強調表示したいレールのインデックスを指定する(-1で強調解除)
-void RailEditor::SetHighlightedRailIndex(int index){
-	highlightedRailIndex_ = index;
-}
-
 // アクティブなレールの制御点数を取得
 int RailEditor::GetControlPointCount() const{
 	return static_cast<int>(rails_[activeRailIndex_].controlPoints.size());
@@ -538,53 +509,6 @@ int RailEditor::GetControlPointIndexFromT(float t) const{
 
 	// 区間の始点(GetPositionOnRailで言うp1)のインデックスが「直近に通過した制御点」
 	return static_cast<int>(segment) + 1;
-}
-
-// 指定した制御点インデックスにちょうど乗る進行度tを取得(対象はアクティブなレール)
-// GetControlPointIndexFromTの逆算(pointIndex = segment + 1 の関係を利用)
-float RailEditor::GetTFromControlPointIndex(int pointIndex) const{
-	const std::vector<ControlPoint>& controlPoints = rails_[activeRailIndex_].controlPoints;
-
-	// Catmull-Rom補間には最低4点必要
-	if(controlPoints.size() < 4){
-		return 0.0f;
-	}
-
-	int numSegments = static_cast<int>(controlPoints.size()) - 3;
-	int segment = pointIndex - 1;
-
-	if(segment < 0) segment = 0;
-	if(segment >= numSegments) segment = numSegments - 1;
-
-	return static_cast<float>(segment) / static_cast<float>(numSegments);
-}
-
-// アクティブなレールの指定インデックスの制御点に設定された分岐先情報を取得
-RailEditor::BranchInfo RailEditor::GetBranchAt(int pointIndex) const{
-	const std::vector<ControlPoint>& controlPoints = rails_[activeRailIndex_].controlPoints;
-
-	if(pointIndex < 0 || pointIndex >= static_cast<int>(controlPoints.size())){
-		return BranchInfo{};
-	}
-
-	BranchInfo info;
-	info.targetRailIndex = controlPoints[pointIndex].branchTargetRailIndex;
-	info.targetPointIndex = controlPoints[pointIndex].branchTargetPointIndex;
-	return info;
-}
-
-// 指定したレール・制御点インデックスの座標を取得(乗り移り方向の判定用。アクティブレール以外も参照可能)
-Vector3 RailEditor::GetControlPointPosition(int railIndex,int pointIndex) const{
-	if(railIndex < 0 || railIndex >= static_cast<int>(rails_.size())){
-		return {0.0f, 0.0f, 0.0f};
-	}
-
-	const std::vector<ControlPoint>& controlPoints = rails_[railIndex].controlPoints;
-	if(pointIndex < 0 || pointIndex >= static_cast<int>(controlPoints.size())){
-		return {0.0f, 0.0f, 0.0f};
-	}
-
-	return controlPoints[pointIndex].position;
 }
 
 // アクティブなレールの全制御点を囲む範囲の中心座標を取得

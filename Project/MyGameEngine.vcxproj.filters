@@ -106,6 +106,12 @@
     <Filter Include="ソース ファイル\Game\Editor">
       <UniqueIdentifier>{db062af4-0868-461d-a37b-756583548a80}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Game\objects">
+      <UniqueIdentifier>{7c1e4d02-9f3b-4a58-8e6d-2b41c9a7f014}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Game\objects">
+      <UniqueIdentifier>{2f8a6b13-4c07-49de-91b5-6e3d80af5c27}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Base\DXCommon.cpp">
@@ -210,6 +216,9 @@
     <ClCompile Include="Game\scenes\ClearScene.cpp">
       <Filter>ソース ファイル\Game\Scenes</Filter>
     </ClCompile>
+    <ClCompile Include="Game\scenes\GameOverScene.cpp">
+      <Filter>ソース ファイル\Game\Scenes</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\Graphics\3D\SkinCluster.cpp">
       <Filter>ソース ファイル\Engine\Graphics\3D</Filter>
     </ClCompile>
@@ -221,6 +230,15 @@
     </ClCompile>
     <ClCompile Include="Game\Editor\RailEditor.cpp">
       <Filter>ソース ファイル\Game\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Editor\TargetEditor.cpp">
+      <Filter>ソース ファイル\Game\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Editor\EnemyEditor.cpp">
+      <Filter>ソース ファイル\Game\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\objects\Enemy.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
     </ClCompile>
     <ClCompile Include="Engine\Manager\GlobalVariables.cpp" />
   </ItemGroup>
@@ -342,6 +360,9 @@
     <ClInclude Include="Game\scenes\ClearScene.h">
       <Filter>ヘッダー ファイル\Game\Scenes</Filter>
     </ClInclude>
+    <ClInclude Include="Game\scenes\GameOverScene.h">
+      <Filter>ヘッダー ファイル\Game\Scenes</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\Base\TimeManager.h">
       <Filter>ヘッダー ファイル\Engine\Base</Filter>
     </ClInclude>
@@ -351,9 +372,22 @@
     <ClInclude Include="Game\Editor\RailEditor.h">
       <Filter>ヘッダー ファイル\Game\Editor</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\Manager\EditorContext.h" />
-    <ClInclude Include="Engine\Manager\EditorWidgets.h" />
+    <ClInclude Include="Game\Editor\TargetEditor.h">
+      <Filter>ヘッダー ファイル\Game\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Editor\EnemyEditor.h">
+      <Filter>ヘッダー ファイル\Game\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\Enemy.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\Manager\GlobalVariables.h" />
+    <ClInclude Include="Engine\Manager\EditorContext.h">
+      <Filter>ヘッダー ファイル\Game\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Manager\EditorWidgets.h">
+      <Filter>ヘッダー ファイル\Game\Editor</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Engine\Graphics\Shaders\Obj3D\Object3d.hlsli">
