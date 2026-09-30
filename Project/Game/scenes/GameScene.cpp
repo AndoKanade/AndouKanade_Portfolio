@@ -28,6 +28,8 @@
 #include "Editor/EnemyEditor.h"
 // 雑魚敵
 #include "objects/Enemy.h"
+// ステージ開始演出(タイトル → カメラの回り込み → カウントダウン)
+#include "Title/StartSequence.h"
 
 namespace{
 	// スカイボックスのテクスチャパス
@@ -214,6 +216,10 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	// 的の撃破時に発生させる火花パーティクルのグループを事前に生成しておく
 	TextureManager::GetInstance()->LoadTexture(kHitParticleTexture);
 	ParticleManager::GetInstance()->CreateParticleGroup(kHitParticleGroupName,kHitParticleTexture);
+
+	// ステージ開始演出の生成(Playに入った瞬間にタイトルから始める)
+	startSequence_ = std::make_unique<StartSequence>();
+	startSequence_->Initialize(object3dCommon_,spriteCommon_,input_);
 }
 
 // シーンの終了処理
@@ -421,10 +427,23 @@ void GameScene::Update(){
 
 		// Playに入った瞬間、ゲームを初期状態から開始する(UnityのPlayと同じく毎回リセットして始まる)。
 		// これでPlayを押すとレール先頭=編集で見えていた画から始まる。
+		// 開始演出もタイトルから始め、Editモードへ戻ったときは止める。
+		// 落下リスタートでは ResetPlayState() だけを呼ぶため、タイトルを挟まずにすぐ再開する
 		if(isPlayMode && !wasPlayMode_){
 			ResetPlayState();
+			startSequence_->Start();
+		} else if(!isPlayMode && wasPlayMode_){
+			startSequence_->Stop();
 		}
 		wasPlayMode_ = isPlayMode;
+
+		// 開始演出の更新(タイトル中のSPACE入力・カメラの回り込み・カウントダウン)
+		if(isPlayMode){
+			startSequence_->Update(deltaTime);
+		}
+
+		// レール進行・操作・射撃・勝敗判定は、開始演出が終わってプレイ可能になってから動かす
+		const bool isGameplayActive = isPlayMode && startSequence_->IsPlayable();
 
 		// マウスカーソルの表示/非表示切り替え
 		// Editモードでは常に表示する(ImGui操作にカーソルが必要なため、Play中に消していても強制的に戻す)
@@ -439,9 +458,9 @@ void GameScene::Update(){
 			::ShowCursor(isCursorVisible_?TRUE:FALSE);
 		}
 
-		// レール進行はPlayモードかつオンレール中、かつ終端未到達のときだけ進める(Edit中・オフレール中はその位置で静止)
+		// レール進行はプレイ可能かつオンレール中、かつ終端未到達のときだけ進める(Edit中・開始演出中・オフレール中はその位置で静止)
 		// 終端に到達したらループさせず、その場で停止させる
-		if(isPlayMode && isOnRail_ && !isRailFinished_){
+		if(isGameplayActive && isOnRail_ && !isRailFinished_){
 			// 現在位置に対応する制御点のSpeed値を取得し、全体速度(railSpeed_)に掛けて反映する
 			float pointSpeed = railEditor_->GetSpeedOnRail(railT_);
 			railT_ += pointSpeed * railSpeed_ * deltaTime;
@@ -463,8 +482,8 @@ void GameScene::Update(){
 		Vector3 cameraPos = basePos + Vector3{0.0f, cameraHeightOffset, 0.0f};
 
 		// プレイヤー入力で照準(カメラの向き)をレールの向きに上乗せする
-		// Edit中は入力を受け付けない(ゲームは静止)
-		if(isPlayMode && input_){
+		// Edit中・開始演出中は入力を受け付けない(ゲームは静止)
+		if(isGameplayActive && input_){
 			aimYawOffset_ += input_->GetMouseDeltaX() * mouseSensitivity;
 			aimPitchOffset_ += input_->GetMouseDeltaY() * mouseSensitivity;
 
@@ -506,7 +525,7 @@ void GameScene::Update(){
 
 		// クリア判定
 		// アクティブなレールが最後まで到達したらクリアとする(オフレール中は判定しない)
-		if(isPlayMode && isOnRail_ && isRailFinished_){
+		if(isGameplayActive && isOnRail_ && isRailFinished_){
 			sceneManager_->ChangeScene("CLEAR");
 		}
 
@@ -573,16 +592,31 @@ void GameScene::Update(){
 			player_->Update();
 		}
 
+		// 開始演出中は、プレイ用カメラをプレイヤー中心に回転させた位置・向きでカメラを上書きする
+		// (カメラの行列はシーン更新の後にまとめて更新されるため、ここで上書きしてもこのフレームの描画に反映される)
+		// タイトルロゴも同じくプレイヤーの位置・向きを基準に配置する
+		if(isPlayMode && startSequence_->IsControllingCamera()){
+			startSequence_->UpdateLogo(playerPos,finalRot);
+
+			Vector3 directedCameraPos;
+			Vector3 directedCameraRot;
+			startSequence_->CalculateCamera(playerPos,cameraPos,finalRot,directedCameraPos,directedCameraRot);
+			if(Camera* mainCamera = CameraManager::GetInstance()->GetCamera("default")){
+				mainCamera->SetTranslate(directedCameraPos);
+				mainCamera->SetRotate(directedCameraRot);
+			}
+		}
+
 		// 雑魚敵の更新
 		// 固定パターンでの往復移動とプレイヤー検知による向きの変更を行う
-		// Edit中はゲームを静止させるため、経過時間を0にして表示更新のみ行わせる
+		// Edit中・開始演出中はゲームを静止させるため、経過時間を0にして表示更新のみ行わせる
 		for(auto& enemy : enemies_){
-			enemy->Update(playerPos,isPlayMode?deltaTime:0.0f);
+			enemy->Update(playerPos,isGameplayActive?deltaTime:0.0f);
 		}
 
 		// 敵弾とプレイヤーの当たり判定
-		// Playモード中のみ判定する。連続被弾で一瞬に体力が尽きないよう、被弾後は一定時間無敵にする
-		if(isPlayMode){
+		// プレイ可能な間のみ判定する。連続被弾で一瞬に体力が尽きないよう、被弾後は一定時間無敵にする
+		if(isGameplayActive){
 			// 無敵時間の経過を進める
 			if(playerInvincibleTimer_ > 0.0f){
 				playerInvincibleTimer_ -= deltaTime;
@@ -610,7 +644,7 @@ void GameScene::Update(){
 
 		// ゲームオーバー判定
 		// 体力が0になったらゲームオーバー画面へ遷移する
-		if(isPlayMode && playerHp_ <= 0){
+		if(isGameplayActive && playerHp_ <= 0){
 			sceneManager_->ChangeScene("GAMEOVER");
 		}
 
@@ -618,7 +652,7 @@ void GameScene::Update(){
 		// オンレール中はジャンプ入力でレールを離れて自由移動状態に切り替え、
 		// オフレール中はWASDでの水平移動と重力・ジャンプ初速による垂直移動を行い、
 		// レール座標によるオンレール判定を使って着地先レールへ再度乗り移る
-		if(isPlayMode && input_ && railEditor_){
+		if(isGameplayActive && input_ && railEditor_){
 			if(isOnRail_){
 				// ジャンプキー(LSHIFT)でレールを離れ、自由移動状態に切り替える
 				if(input_->TriggerKey(DIK_LSHIFT)){
@@ -680,7 +714,8 @@ void GameScene::Update(){
 		}
 
 		// 弾の発射処理(SPACEキーを押した瞬間に1発だけ発射する)
-		bool shootTriggered = isPlayMode && input_ && input_->TriggerKey(DIK_SPACE);
+		// タイトルのスタートもSPACEだが、押した瞬間はまだプレイ可能になっていないため弾は出ない
+		bool shootTriggered = isGameplayActive && input_ && input_->TriggerKey(DIK_SPACE);
 		if(shootTriggered){
 			Bullet bullet;
 			bullet.obj = std::make_unique<Obj3D>();
@@ -967,6 +1002,11 @@ void GameScene::Draw(){
 		player_->Draw();
 	}
 
+	// タイトルロゴを描画(タイトル中・カメラの回り込み中のみ)
+	if(startSequence_){
+		startSequence_->Draw3D();
+	}
+
 	// 雑魚敵を描画(撃破済みのときはEnemy側で描画をスキップする)
 	for(auto& enemy : enemies_){
 		enemy->Draw();
@@ -992,9 +1032,16 @@ void GameScene::Draw(){
 	}
 
 	// 画面中央固定のレティクルを描画(2D描画のため、SpriteCommonの描画前処理を先に呼ぶ)
-	if((reticleOutlineSprite_ || reticleCenterSprite_) && spriteCommon_){
+	// タイトル中・カメラの回り込み中は照準を使わないため表示しない
+	bool isTitleShowing = startSequence_ && startSequence_->IsControllingCamera();
+	if((reticleOutlineSprite_ || reticleCenterSprite_) && spriteCommon_ && !isTitleShowing){
 		spriteCommon_->Draw(); // 描画前処理
 		if(reticleOutlineSprite_) reticleOutlineSprite_->Draw(); // 外枠を先に描画
 		if(reticleCenterSprite_) reticleCenterSprite_->Draw();   // 中心ドットを上から重ねる
+	}
+
+	// 開始演出のタイトル表示(PRESS SPACE)を最前面に描画する
+	if(startSequence_){
+		startSequence_->Draw2D();
 	}
 }

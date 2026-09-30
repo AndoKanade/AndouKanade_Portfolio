@@ -75,8 +75,9 @@ void ClearScene::Update(){
 #endif
 
 	// シーン遷移 (スペースキーでタイトルへ)
+	// タイトルはゲームシーン内の開始演出として表示するため、ゲームシーンを最初から始め直す
 	if(input_->TriggerKey(DIK_SPACE)){
-		SceneManager::GetInstance()->ChangeScene("TITLE");
+		SceneManager::GetInstance()->ChangeScene("GAME");
 	}
 }
 

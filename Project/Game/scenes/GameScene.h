@@ -19,6 +19,7 @@ class RailEditor;
 class TargetEditor;
 class Enemy;
 class EnemyEditor;
+class StartSequence;
 
 class GameScene : public BaseScene{
 public:
@@ -198,6 +199,9 @@ private:
 
 	// 照準判定の許容角度(ラジアン)。画面中央のレティクルがこの角度以内に的を捉えていればヒット
 	const float kAimHitAngle_ = 0.09f; // 約5度
+
+	// ステージ開始演出(タイトル → カメラの回り込み → カウントダウン → プレイ)
+	std::unique_ptr<StartSequence> startSequence_;
 
 	// 画面中央固定のレティクル(照準)を表示するスプライト
 	// 外枠(常時表示)と中心ドット(狙えているときに強調表示)の2枚構成
