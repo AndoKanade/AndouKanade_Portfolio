@@ -112,6 +112,12 @@
     <Filter Include="ソース ファイル\Game\objects">
       <UniqueIdentifier>{2f8a6b13-4c07-49de-91b5-6e3d80af5c27}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Game\Title">
+      <UniqueIdentifier>{5b3e9c71-2d84-4f6a-9e1b-7c0a4d2f8e36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Game\Title">
+      <UniqueIdentifier>{a4d71f28-6c3b-4e95-8b0d-1f7e2c9a5b43}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Base\DXCommon.cpp">
@@ -210,9 +216,6 @@
     <ClCompile Include="Game\scenes\GameScene.cpp">
       <Filter>ソース ファイル\Game\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="Game\scenes\TitleScene.cpp">
-      <Filter>ソース ファイル\Game\Scenes</Filter>
-    </ClCompile>
     <ClCompile Include="Game\scenes\ClearScene.cpp">
       <Filter>ソース ファイル\Game\Scenes</Filter>
     </ClCompile>
@@ -239,6 +242,24 @@
     </ClCompile>
     <ClCompile Include="Game\objects\Enemy.cpp">
       <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Title\LogoHidePattern.cpp">
+      <Filter>ソース ファイル\Game\Title</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Title\StartCountdown.cpp">
+      <Filter>ソース ファイル\Game\Title</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Title\StartSequence.cpp">
+      <Filter>ソース ファイル\Game\Title</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Title\TitleCameraDirector.cpp">
+      <Filter>ソース ファイル\Game\Title</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Title\TitleLogo.cpp">
+      <Filter>ソース ファイル\Game\Title</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Title\TitleUI.cpp">
+      <Filter>ソース ファイル\Game\Title</Filter>
     </ClCompile>
     <ClCompile Include="Engine\Manager\GlobalVariables.cpp">
       <Filter>ソース ファイル\Engine\Manager</Filter>
@@ -356,9 +377,6 @@
     <ClInclude Include="Game\scenes\GameScene.h">
       <Filter>ヘッダー ファイル\Game\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="Game\scenes\TitleScene.h">
-      <Filter>ヘッダー ファイル\Game\Scenes</Filter>
-    </ClInclude>
     <ClInclude Include="Game\scenes\ClearScene.h">
       <Filter>ヘッダー ファイル\Game\Scenes</Filter>
     </ClInclude>
@@ -382,6 +400,27 @@
     </ClInclude>
     <ClInclude Include="Game\objects\Enemy.h">
       <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Base\Easing.h">
+      <Filter>ヘッダー ファイル\Engine\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Title\LogoHidePattern.h">
+      <Filter>ヘッダー ファイル\Game\Title</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Title\StartCountdown.h">
+      <Filter>ヘッダー ファイル\Game\Title</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Title\StartSequence.h">
+      <Filter>ヘッダー ファイル\Game\Title</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Title\TitleCameraDirector.h">
+      <Filter>ヘッダー ファイル\Game\Title</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Title\TitleLogo.h">
+      <Filter>ヘッダー ファイル\Game\Title</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Title\TitleUI.h">
+      <Filter>ヘッダー ファイル\Game\Title</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Manager\EditorContext.h">
       <Filter>ヘッダー ファイル\Game\Editor</Filter>
