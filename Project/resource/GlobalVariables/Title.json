@@ -1,11 +1,13 @@
 {
     "Title": {
+        "bgmVolume": 0.06000002473592758,
         "logoHideMode": 3,
         "logoOffset": [
             0.0,
             2.0,
             4.0
         ],
-        "logoScale": 1.5
+        "logoScale": 1.5,
+        "seVolume": 0.3999999165534973
     }
 }

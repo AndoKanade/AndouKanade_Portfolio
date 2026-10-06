@@ -337,7 +337,7 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 
 | 表示 | 仮テクスチャ | 位置・大きさ | 動き |
 | --- | --- | --- | --- |
-| PRESS SPACE | `resource/gradationLine.png` | 画面上から 80% の高さ、360 × 60 | 濃さ 0.2〜1 で点滅＋フェード |
+| PRESS SPACE | `resource/Title/pressSpace.png` | 画面上から 80% の高さ、360 × 60 | 濃さ 0.2〜1 で点滅＋フェード |
 
 | 関数 | 内容 |
 | --- | --- |

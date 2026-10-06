@@ -88,6 +88,13 @@ public: // --- 音声ロード・再生制御 ---
 	/// </summary>
 	bool IsPlaying(const std::string& filename);
 
+	/// <summary>
+	/// 再生中の音声の音量を変更 (再生していなければ何もしない)
+	/// </summary>
+	/// <param name="filename">ファイルパス</param>
+	/// <param name="volume">音量 (0.0=無音, 1.0=最大)</param>
+	void SetVolume(const std::string& filename,float volume);
+
 private: // --- コンストラクタ・デストラクタ (外部からの生成禁止) ---
 	SoundManager() = default;
 	~SoundManager() = default;

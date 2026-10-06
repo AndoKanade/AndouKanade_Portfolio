@@ -9,8 +9,8 @@
 #include <string>
 
 namespace{
-	// PRESS SPACE の仮テクスチャ(専用素材ができたら差し替える)
-	const std::string kPressTexture = "resource/gradationLine.png";
+	// PRESS SPACE のテクスチャ
+	const std::string kPressTexture = "resource/Title/pressSpace.png";
 	// フェード用の白一色のテクスチャ(色を掛けて黒にする)
 	// 読み込み時にミップマップを生成するため、1x1 では失敗する。縮小できる大きさにしている
 	const std::string kFadeTexture = "resource/white16x16.png";

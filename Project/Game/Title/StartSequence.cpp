@@ -2,7 +2,31 @@
 #include "Title/TitleLogo.h"
 #include "Title/TitleUI.h"
 #include "Input.h"
+#include "SoundManager.h"
+#include "GlobalVariables.h"
+#include <algorithm>
 #include <cmath>
+#include <string>
+
+namespace{
+	// タイトル中に流すBGM
+	const std::string kTitleBgmPath = "resource/music/bgm/nemui.mp3";
+	// SPACE を押してスタートしたときの決定音
+	const std::string kDecideSePath = "resource/music/se/decide.mp3";
+	// GlobalVariablesのグループ名(タイトル演出の調整項目)
+	const char* kTitleGroup = "Title";
+	// BGM・SEの音量の調整項目名
+	const char* kBgmVolumeKey = "bgmVolume";
+	const char* kSeVolumeKey = "seVolume";
+	// 音量の範囲(0=無音, 1=元の音量)
+	constexpr float kMinVolume = 0.0f;
+	constexpr float kMaxVolume = 1.0f;
+
+	// 調整項目から音量を取得する(ImGuiで範囲外の値を入れられても音が割れないよう範囲内に収める)
+	float GetVolume(const char* key){
+		return std::clamp(GlobalVariables::GetInstance()->GetFloatValue(kTitleGroup,key),kMinVolume,kMaxVolume);
+	}
+}
 
 StartSequence::StartSequence() = default;
 StartSequence::~StartSequence() = default;
@@ -16,6 +40,17 @@ void StartSequence::Initialize(Obj3dCommon* object3dCommon,SpriteCommon* spriteC
 
 	titleUI_ = std::make_unique<TitleUI>();
 	titleUI_->Initialize(spriteCommon);
+
+	// BGM・SEの読み込み
+	SoundManager::GetInstance()->SoundLoadFile(kTitleBgmPath);
+	SoundManager::GetInstance()->SoundLoadFile(kDecideSePath);
+
+	// 実際に聞きながら音量を詰められるよう、調整項目として登録する
+	// (ImGuiの "Global Variables" パネル、または resource/GlobalVariables/Title.json の書き換えで変更できる)
+	GlobalVariables* gv = GlobalVariables::GetInstance();
+	gv->CreateGroup(kTitleGroup);
+	gv->AddItem(kTitleGroup,kBgmVolumeKey,kDefaultBgmVolume);
+	gv->AddItem(kTitleGroup,kSeVolumeKey,kDefaultSeVolume);
 }
 
 // タイトルから始める
@@ -30,12 +65,15 @@ void StartSequence::Start(){
 	if(titleUI_){
 		titleUI_->Reset();
 	}
+	// タイトルBGMを最初からループ再生する
+	SoundManager::GetInstance()->PlayAudio(kTitleBgmPath,GetVolume(kBgmVolumeKey),true);
 }
 
 // 演出を止める
 void StartSequence::Stop(){
 	phase_ = Phase::None;
 	countdown_.Stop();
+	SoundManager::GetInstance()->StopAudio(kTitleBgmPath);
 }
 
 // 更新処理
@@ -44,6 +82,8 @@ void StartSequence::Update(float deltaTime){
 	case Phase::Title:
 		// カメラをゆっくり揺らしながら、SPACE の入力を待つ
 		cameraDirector_.UpdateIdle(deltaTime);
+		// ImGuiで変更した音量をすぐ反映させる
+		SoundManager::GetInstance()->SetVolume(kTitleBgmPath,GetVolume(kBgmVolumeKey));
 		if(titleUI_){
 			titleUI_->Update(deltaTime,kTitleVisible);
 		}
@@ -61,6 +101,8 @@ void StartSequence::Update(float deltaTime){
 			if(titleLogo_){
 				titleLogo_->BeginHide();
 			}
+			// 決定音を鳴らす
+			SoundManager::GetInstance()->PlayAudio(kDecideSePath,GetVolume(kSeVolumeKey));
 			phase_ = Phase::CameraTurn;
 		}
 		break;
@@ -78,7 +120,11 @@ void StartSequence::Update(float deltaTime){
 		if(titleUI_){
 			titleUI_->Update(deltaTime,kTitleVisible - cameraDirector_.GetTurnProgress());
 		}
+		// タイトル表示と同じく、回り込みの進行に合わせてBGMを小さくしていく
+		SoundManager::GetInstance()->SetVolume(kTitleBgmPath,GetVolume(kBgmVolumeKey) * (kTitleVisible - cameraDirector_.GetTurnProgress()));
 		if(cameraDirector_.IsTurnFinished()){
+			// 回り込みが終わったらBGMを止める
+			SoundManager::GetInstance()->StopAudio(kTitleBgmPath);
 			countdown_.Start();
 			phase_ = Phase::Countdown;
 		}

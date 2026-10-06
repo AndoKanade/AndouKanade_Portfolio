@@ -102,4 +102,8 @@ private:
 	static constexpr float kPlayerHopHeight = 0.3f;
 	// 円周率(跳ねの高さをsinの半周期で表すために使う)
 	static constexpr float kPi = 3.14159265f;
+	// タイトルBGMの音量の初期値(0〜1)
+	static constexpr float kDefaultBgmVolume = 0.5f;
+	// 決定音の音量の初期値(0〜1)
+	static constexpr float kDefaultSeVolume = 1.0f;
 };

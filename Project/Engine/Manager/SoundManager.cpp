@@ -247,3 +247,13 @@ void SoundManager::ResumeAudio(const std::string& filename){
 bool SoundManager::IsPlaying(const std::string& filename){
 	return activeVoices_.find(filename) != activeVoices_.end();
 }
+
+// ==========================================================================
+// 音量変更 (SetVolume)
+// ==========================================================================
+void SoundManager::SetVolume(const std::string& filename,float volume){
+	auto it = activeVoices_.find(filename);
+	if(it != activeVoices_.end()){
+		it->second->SetVolume(volume);
+	}
+}
