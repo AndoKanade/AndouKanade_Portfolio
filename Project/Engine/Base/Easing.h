@@ -42,4 +42,42 @@ namespace Easing{
 
 		return kCubicCoefficient * t * t * t - kBackAmount * t * t;
 	}
+
+	// 落ちてきて地面で数回弾み、だんだん弾みが小さくなって止まる
+	inline float EaseOutBounce(float t){
+		// 放物線の鋭さの係数(一般的に使われる値)
+		constexpr float kCoefficient = 7.5625f;
+		// 1回の落下と3回の弾みに区切るための基準の幅
+		constexpr float kDivisor = 2.75f;
+		// 各区間の終わりの位置(落下、1回目、2回目の弾みの終わり)
+		constexpr float kFirstEnd = 1.0f / kDivisor;
+		constexpr float kSecondEnd = 2.0f / kDivisor;
+		constexpr float kThirdEnd = 2.5f / kDivisor;
+		// 各弾みの頂点の位置(区間の中央)
+		constexpr float kSecondCenter = 1.5f / kDivisor;
+		constexpr float kThirdCenter = 2.25f / kDivisor;
+		constexpr float kFourthCenter = 2.625f / kDivisor;
+		// 各弾みの頂点で地面から浮く量を決める値(弾むたびに小さくする)
+		constexpr float kSecondBase = 0.75f;
+		constexpr float kThirdBase = 0.9375f;
+		constexpr float kFourthBase = 0.984375f;
+
+		if(t < kFirstEnd){
+			// 最初の落下
+			return kCoefficient * t * t;
+		}
+		if(t < kSecondEnd){
+			// 1回目の弾み
+			float local = t - kSecondCenter;
+			return kCoefficient * local * local + kSecondBase;
+		}
+		if(t < kThirdEnd){
+			// 2回目の弾み
+			float local = t - kThirdCenter;
+			return kCoefficient * local * local + kThirdBase;
+		}
+		// 3回目の小さな弾み
+		float local = t - kFourthCenter;
+		return kCoefficient * local * local + kFourthBase;
+	}
 }

@@ -583,7 +583,8 @@ void GameScene::Update(){
 		playerPos.y -= kPlayerDownOffset_; // スプラトゥーン風に、基準位置よりさらに下に表示する
 
 		if(player_){
-			player_->SetTranslate(playerPos);
+			// タイトル中の跳ねは見た目だけに反映し、カメラ・ロゴ・敵が基準にする playerPos は動かさない
+			player_->SetTranslate({playerPos.x, playerPos.y + startSequence_->GetPlayerHopHeight(), playerPos.z});
 			player_->SetRotate(baseRot);
 			player_->SetScale({kPlayerScale_, kPlayerScale_, kPlayerScale_}); // 小さめのスケールで表示
 			if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
