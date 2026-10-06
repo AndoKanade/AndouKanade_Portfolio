@@ -351,3 +351,124 @@ RailEditor 側の分岐設定 UI（Inspector の Branch Target Rail/Point）と 
 - プレイヤーの弾は発射のたびに `make_unique<Obj3D>` している。敵弾は使い回しているので、同じ方式に揃えたい。前回からの持ち越し。
 - 体力・敵のHP・撃破数などの HUD 表示（スプライト）が未実装で、現状は ImGui のデバッグ表示のみ。前回からの持ち越し。
 - ゲームオーバー画面・クリア画面の文字表示は ImGui での代用のまま。前回からの持ち越し。
+
+---
+
+## 2026-09-30
+
+### 目標
+
+- タイトルシーンの作り込み（CLAUDE.md ロードマップ 7）
+- 参考: スプラトゥーン2 オクト・エキスパンションのステージ開始演出
+- モデル・リソースが揃っていないため、カメラワーク・タイトルロゴのモデル・仮スプライト・ImGui 表示で表現する
+
+### 1. タイトルをゲームシーン内の開始演出に変更
+
+対象ファイル: `Game/Title/StartSequence.h/.cpp`（新規）、`Game/scenes/GameScene.h/.cpp`、`Game/systems/SceneFactory.h/.cpp`、`Engine/Framework/Application.cpp`、`Game/scenes/ClearScene.cpp`、`Game/scenes/GameOverScene.cpp`
+
+タイトルからゲームへカメラを途切れさせずにつなぐため、タイトルを独立したシーンではなく GameScene の中の開始演出にした。
+`SceneManager::ChangeScene` はシーンを破棄・再生成するため、別シーンのままではカメラを連続して動かせないため。
+
+- `StartSequence` を追加し、`Title → CameraTurn → Countdown → Playing` の段階を管理するようにした。Edit モード中は `None`。
+- GameScene からは `Update()` を呼び、`IsPlayable()` でプレイ可能かを受け取るだけにした。
+- GameScene に `isGameplayActive`（Play 中かつプレイ可能）を追加した。レール進行・照準・ジャンプ・射撃・敵の動き・当たり判定・勝敗判定は、これが true のときだけ動く。
+- Play に入った瞬間は `ResetPlayState()` と `StartSequence::Start()` を呼び、Edit に戻った瞬間は `Stop()` を呼ぶ。
+- 落下リスタートは従来どおり `ResetPlayState()` だけを呼ぶため、タイトルを挟まずにすぐ再開する。
+- スタートと射撃はどちらも SPACE だが、押した瞬間はまだプレイ可能になっていないため弾は出ない。
+- タイトル中・回り込み中はレティクルを表示しない。
+- 起動時のシーンと、ClearScene / GameOverScene から戻る先を `"GAME"` に変更した。SceneFactory から `"TITLE"` を外した。
+- `TitleScene.h/.cpp` を削除した。数字キーでのポストエフェクト切り替えとグリッチ発動のデバッグ処理も一緒に無くなった。
+
+### 2. カメラの回り込み
+
+対象ファイル: `Game/Title/TitleCameraDirector.h/.cpp`（新規）、`Engine/Base/Easing.h`（新規）
+
+- プレイ用カメラ（レール追従カメラ）の位置を、プレイヤーを中心に Y 軸まわりに回転させて求める。向きのヨーにも同じ角度を足すため、常にプレイ時と同じ構図でプレイヤーを映す。回り込み終了時にプレイ用カメラと完全に一致する。
+- タイトル中は回転角を 180°（正面）にし、`sin` で左右にゆっくり揺らす。カメラ距離は 0.6 倍にして少し寄った画にする。
+- SPACE を押すと、その瞬間の揺れの角度から 0° まで、距離の倍率を 0.6 から 1.0 まで、`EaseInOutCubic` で 2 秒かけて補間する。
+- GameScene では、プレイヤーの位置を求めた後に、演出中だけカメラの位置・向きを上書きする。カメラの行列はシーン更新の後にまとめて更新されるため、このフレームの描画に反映される。
+- `Easing.h` を新規作成した（`EaseInOutCubic` / `EaseInCubic` / `EaseOutCubic` / `EaseInBack`）。
+
+| 定数 | 値 | 内容 |
+| --- | --- | --- |
+| `kTurnDuration` | 2.0f | 回り込みにかける時間（秒） |
+| `kTitleDistanceScale` | 0.6f | タイトル中のカメラ距離の倍率 |
+| `kGameplayDistanceScale` | 1.0f | 回り込み終了時の距離の倍率 |
+| `kSwayAmplitude` | 0.08f | タイトル中の揺れ幅（ラジアン、約 5°） |
+| `kSwaySpeed` | 0.8f | 揺れの速さ |
+
+### 3. タイトルロゴ（3D モデル）
+
+対象ファイル: `Game/Title/TitleLogo.h/.cpp`（新規）、`resource/Title/title.obj`（ユーザー追加）
+
+- 立体文字のモデル（「ラインジャンパー」）を、タイトル中のカメラから見てプレイヤーの奥の上空に置く。文字の正面はタイトル中のカメラへ向ける。
+- モデルの原点は文字の左下で、読み込み時の左手系変換で X が反転しているため、文字列の中心が指定位置に来るよう原点をずらして置く（`kModelCenterX` = -3.545、`kModelCenterY` = 0.467）。大きさ・回転を変えても文字列の中心が軸になる。
+- 位置・大きさ・消え方は GlobalVariables（グループ `Title`、`resource/GlobalVariables/Title.json`）で調整できる。
+
+| キー | 初期値 | 内容 |
+| --- | --- | --- |
+| `logoOffset` | (0, 4, 10) | 文字列の中心の位置。プレイヤーから見て x: 右、y: 上、z: 後ろ |
+| `logoScale` | 1.5 | 表示スケール |
+| `logoHideMode` | 3 | スタート後の消え方の番号 |
+
+### 4. タイトルロゴの消え方
+
+対象ファイル: `Game/Title/LogoHidePattern.h/.cpp`（新規）、`Game/Title/TitleLogo.h/.cpp`
+
+最初はカメラの回り込みが終わってから消えていたため、回り込むカメラにロゴがかぶって邪魔になっていた。SPACE を押した瞬間から消し始めるようにした。
+
+- 消え方の計算は `LogoHidePattern` に分け、進行度から「大きさの倍率・位置のずれ・追加の回転・α 値」を返す形にした。TitleLogo はその結果を反映するだけ。
+- 何種類か試した結果、次の 3 種類を残した。消え終わるまでの時間は消え方ごとに決めている。
+
+| 番号 | 種類 | 消え方 | 時間 |
+| --- | --- | --- | --- |
+| 1 | Squash | 縦に潰れて横線になり、横にも縮んで消える | 0.5 秒 |
+| 2 | PopOut | 一瞬ふくらんでから、勢いよく縮む | 0.5 秒 |
+| 3 | JumpAway | しゃがんで溜めてから、放物線を描いて奥へジャンプしていく（初期値） | 1.1 秒 |
+
+- 範囲外の番号は JumpAway として扱う。
+- 消え方は SPACE を押した時点の設定値を取り込み、演出の途中で設定が変わっても崩れないようにした。
+
+### 5. 3D モデルのアルファブレンド
+
+対象ファイル: `Engine/Graphics/3D/Obj3DCommon.cpp`
+
+- ロゴをフェードで消すために、3D モデル用パイプラインで通常のアルファブレンド（描く色 × α + 背景 × (1 - α)）を有効にした。
+- 従来はブレンドが無効で、マテリアルの α 値はシェーダーのアルファテスト（0 のとき discard）にしか効いていなかった。
+- α 値が 1 のモデルは従来と同じ見た目になる。
+- 半透明のモデルも深度を書き込むため、その後ろに後から描くモデルは隠れる。半透明のものは最後に描くのが基本。
+
+### 6. PRESS SPACE とカウントダウン
+
+対象ファイル: `Game/Title/TitleUI.h/.cpp`（新規）、`Game/Title/StartCountdown.h/.cpp`（新規）
+
+- PRESS SPACE は仮テクスチャ（`resource/gradationLine.png`）のスプライトで、濃さ 0.2〜1 で点滅させる。回り込みの進行に合わせて薄くなる。
+- カウントダウンは ImGui で画面中央に「3 → 2 → 1 → GO!」を大きく表示する（1 秒ごと、GO は 0.8 秒表示）。GO と同時にプレイ可能になる。
+
+### 7. Release 構成でゲームが始まらない問題の修正
+
+対象ファイル: `Engine/Manager/EditorContext.h`
+
+- Play ボタンは ImGui にしか無く、Release 構成は `USE_IMGUI` が無効なため、起動したまま Edit モードで止まっていた（今回より前からの問題）。
+- ImGui が無い構成では、起動時から Play モードにした。これで起動直後にタイトル演出から始まる。
+
+### その他
+
+- `GameClassSpec.md` を新規作成した。Game フォルダの全クラスの役割・関数・定数・操作キー・保存ファイルをまとめた仕様書。
+- `MyGameEngine.vcxproj` / `.filters` に新規ファイルを登録し、TitleScene を外した。`Game/Title` フィルターを追加した。
+
+### ビルド確認
+
+`MyGameEngine.sln` を Debug / Development / Release（すべて x64）でビルドし、エラー・警告なしで成功することを確認した。
+タイトル → 回り込み → カウントダウン → プレイの流れと、ロゴの消え方は Development 構成の実機で確認済み。
+
+### 残課題
+
+- 落下リスタートでタイトルを挟まないこと、GameOver / Clear から戻るとタイトルから始まることは未確認。
+- アルファブレンドを有効にした後、敵・的・レール・地面の見た目が変わっていないかは未確認。
+- Release 構成ではカウントダウンの表示（ImGui）が出ない。タイマー自体は動くため、3 秒後にプレイは始まる。スプライトへの差し替えで解決する。
+- PRESS SPACE・カウントダウンが仮表示のまま。本番の素材ができたら差し替える。
+- 保存されている `logoOffset` は後ろへの距離が 4 で、プレイ用カメラ（プレイヤーの約 6 後ろ）より手前にある。今はスタートと同時に消えるので問題ないが、途中で消えない使い方をする場合は 6 より大きくする。
+- `LogoHideEffect::spinYaw`（追加の回転）は、残した 3 種類では使っていない。
+- 台の上から自由に動いてレールに乗る流れ、タイトル演出スキップ用の ImGui チェックボックスは後で対応する。
+- タイトル演出が落ち着いたら、GameScene.cpp（約 1000 行）を役割ごとのクラスへ分割する（Player / RailCamera / PlayerBulletPool / TargetManager / Ground / DebugCamera / GameSceneDebugUI）。

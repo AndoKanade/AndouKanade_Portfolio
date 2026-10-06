@@ -273,8 +273,18 @@ void Obj3dCommon::CreateGraphicsPipelineState(){
 	inputLayoutDesc.pInputElementDescs = inputElementDescs;
 	inputLayoutDesc.NumElements = _countof(inputElementDescs);
 
+	// マテリアルのα値で半透明に描けるよう、通常のアルファブレンド(描く色×α + 背景×(1-α))を有効にする
+	// α値が1のモデルは従来どおり上書きと同じ見た目になる
 	D3D12_BLEND_DESC blendDesc{};
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	blendDesc.RenderTarget[0].BlendEnable = TRUE;
+	blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	// α値そのものは描く側の値をそのまま書き込む
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
 
 	D3D12_RASTERIZER_DESC rasterizerDesc{};
 	rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;

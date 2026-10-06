@@ -397,12 +397,18 @@ if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVers
     <ClInclude Include="Game\Editor\TargetEditor.h" />
     <ClInclude Include="Game\Editor\EnemyEditor.h" />
     <ClInclude Include="Game\objects\Enemy.h" />
+    <ClInclude Include="Engine\Base\Easing.h" />
+    <ClInclude Include="Game\Title\LogoHidePattern.h" />
+    <ClInclude Include="Game\Title\StartCountdown.h" />
+    <ClInclude Include="Game\Title\StartSequence.h" />
+    <ClInclude Include="Game\Title\TitleCameraDirector.h" />
+    <ClInclude Include="Game\Title\TitleLogo.h" />
+    <ClInclude Include="Game\Title\TitleUI.h" />
     <ClInclude Include="Game\systems\AbstractSceneFactory.h" />
     <ClInclude Include="Game\systems\BaseScene.h" />
     <ClInclude Include="Game\scenes\GameScene.h" />
     <ClInclude Include="Game\systems\SceneFactory.h" />
     <ClInclude Include="Game\systems\SceneManager.h" />
-    <ClInclude Include="Game\scenes\TitleScene.h" />
     <ClInclude Include="Game\scenes\ClearScene.h" />
     <ClInclude Include="Game\scenes\GameOverScene.h" />
     <ClInclude Include="resource\resource.h" />
@@ -445,10 +451,15 @@ if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVers
     <ClCompile Include="Game\Editor\TargetEditor.cpp" />
     <ClCompile Include="Game\Editor\EnemyEditor.cpp" />
     <ClCompile Include="Game\objects\Enemy.cpp" />
+    <ClCompile Include="Game\Title\LogoHidePattern.cpp" />
+    <ClCompile Include="Game\Title\StartCountdown.cpp" />
+    <ClCompile Include="Game\Title\StartSequence.cpp" />
+    <ClCompile Include="Game\Title\TitleCameraDirector.cpp" />
+    <ClCompile Include="Game\Title\TitleLogo.cpp" />
+    <ClCompile Include="Game\Title\TitleUI.cpp" />
     <ClCompile Include="Game\scenes\GameScene.cpp" />
     <ClCompile Include="Game\systems\SceneFactory.cpp" />
     <ClCompile Include="Game\systems\SceneManager.cpp" />
-    <ClCompile Include="Game\scenes\TitleScene.cpp" />
     <ClCompile Include="Game\scenes\ClearScene.cpp" />
     <ClCompile Include="Game\scenes\GameOverScene.cpp" />
   </ItemGroup>

@@ -69,8 +69,8 @@ void Application::Initialize(){
 	sceneManager->SetFactory(sceneFactory_.get());
 	sceneManager->SetCommonPtr(object3dCommon_.get(),input_.get(),spriteCommon_.get());
 
-	// 5. 最初のシーンを開始
-	sceneManager->ChangeScene("TITLE");
+	// 5. 最初のシーンを開始(タイトルはゲームシーン内の開始演出として表示する)
+	sceneManager->ChangeScene("GAME");
 
 	// 6. ポストプロセス用マスク画像のロード
 	TextureManager::GetInstance()->LoadTexture("resource/noise0.png");
