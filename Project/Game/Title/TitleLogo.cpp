@@ -4,6 +4,7 @@
 #include "ModelManager.h"
 #include "CameraManager.h"
 #include "GlobalVariables.h"
+#include "Easing.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -51,6 +52,10 @@ void TitleLogo::Update(const Vector3& pivot,const Vector3& gameplayRotate){
 	LogoHideEffect effect = CalculateLogoHideEffect(hideType_,GetHideProgress());
 	Vector3 scale = {baseScale * effect.scaleRate.x, baseScale * effect.scaleRate.y, baseScale * effect.scaleRate.z};
 	offset += effect.offset;
+	// 登場演出中は、弾むイージングで上空から置く位置まで落とす(着地後はずれ無し)
+	offset.y += kAppearDropHeight * (1.0f - Easing::EaseOutBounce(GetAppearProgress()));
+	// 待機中はゆっくり浮き沈みさせる(sinの0から始まるため、着地した瞬間から途切れずにつながる)
+	offset.y += kIdleBobHeight * std::sin(idleTimer_ * kIdleBobSpeed);
 	if(Model::Material* material = obj_->GetMaterial()){
 		material->color.w = effect.alpha;
 	}
@@ -63,8 +68,8 @@ void TitleLogo::Update(const Vector3& pivot,const Vector3& gameplayRotate){
 	// 文字列の中心を置きたい位置(プレイヤーから後ろ・上・右へずらした位置)
 	Vector3 center = pivot - forward * offset.z + kWorldUp * offset.y + right * offset.x;
 
-	// 回転演出の分だけ追加で回したときの、モデルのX軸の向き(ヨーだけ回したモデルのX軸と一致する)
-	float logoYaw = yaw + effect.spinYaw;
+	// 回転演出と待機中の首振りの分だけ追加で回したときの、モデルのX軸の向き(ヨーだけ回したモデルのX軸と一致する)
+	float logoYaw = yaw + effect.spinYaw + kIdleSwayAngle * std::sin(idleTimer_ * kIdleSwaySpeed);
 	Vector3 logoRight = {std::cos(logoYaw), 0.0f, -std::sin(logoYaw)};
 
 	// モデルの原点は文字の左下なので、文字列の中心がcenterに来るよう原点の位置をずらす
@@ -92,6 +97,30 @@ void TitleLogo::Draw(){
 void TitleLogo::Reset(){
 	hideTimer_ = 0.0f;
 	isHiding_ = false;
+	appearTimer_ = 0.0f;
+	idleTimer_ = 0.0f;
+}
+
+// 登場演出を進める(待ち時間と落下時間の合計を超えないよう止める)
+void TitleLogo::UpdateAppear(float deltaTime){
+	appearTimer_ = (std::min)(appearTimer_ + deltaTime,kAppearDelay + kAppearDuration);
+}
+
+// 登場演出が終わったか
+bool TitleLogo::IsAppearFinished() const{
+	return GetAppearProgress() >= 1.0f;
+}
+
+// 待機中の揺れを進める(着地前に揺れると落下の動きと混ざるため、着地後だけ進める)
+void TitleLogo::UpdateIdle(float deltaTime){
+	if(IsAppearFinished()){
+		idleTimer_ += deltaTime;
+	}
+}
+
+// 登場演出の進行度(待ち時間中は0のまま)
+float TitleLogo::GetAppearProgress() const{
+	return std::clamp((appearTimer_ - kAppearDelay) / kAppearDuration,0.0f,1.0f);
 }
 
 // 消える演出を始める(消え方はこの時点の設定値を使い、消え終わるまでの時間は消え方ごとに決まった値を使う)

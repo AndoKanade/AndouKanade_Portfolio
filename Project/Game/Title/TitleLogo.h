@@ -36,6 +36,15 @@ public:
 	// 表示状態に戻す(タイトル開始時に呼ぶ)
 	void Reset();
 
+	// 登場演出(上から落ちてきて弾む)を進める
+	void UpdateAppear(float deltaTime);
+
+	// 登場演出が終わったか
+	bool IsAppearFinished() const;
+
+	// 待機中の揺れ(上下の浮き沈みと左右の首振り)を進める。着地前は進めない
+	void UpdateIdle(float deltaTime);
+
 	// 消える演出を始める(スタート入力時に呼ぶ)
 	void BeginHide();
 
@@ -46,7 +55,15 @@ private:
 	// 消える演出の進行度(0で通常表示、1で消え終わり)
 	float GetHideProgress() const;
 
+	// 登場演出の進行度(0で落ち始め、1で着地して止まった状態)
+	float GetAppearProgress() const;
+
 	std::unique_ptr<Obj3D> obj_;
+
+	// 登場演出の経過時間(秒、落ち始めるまでの待ち時間も含む)
+	float appearTimer_ = 0.0f;
+	// 着地してからの待機中の揺れの経過時間(秒)
+	float idleTimer_ = 0.0f;
 
 	// 消える演出の経過時間(秒)
 	float hideTimer_ = 0.0f;
@@ -70,4 +87,20 @@ private:
 	static constexpr float kDefaultScale = 1.5f;
 	// 消え方の初期値
 	static constexpr LogoHideType kDefaultHideType = LogoHideType::JumpAway;
+
+	// 登場演出で落ち始めるまでの待ち時間(秒)。画面のフェードインで景色が見え始めてから落とす
+	static constexpr float kAppearDelay = 0.7f;
+	// 落ち始めてから弾み終わるまでの時間(秒)
+	static constexpr float kAppearDuration = 1.2f;
+	// 落ち始める高さ(置く位置からの上方向の距離)
+	static constexpr float kAppearDropHeight = 6.0f;
+
+	// 待機中に上下へ浮き沈みする幅(置く位置からの最大のずれ)
+	static constexpr float kIdleBobHeight = 0.15f;
+	// 上下の浮き沈みの速さ(1秒あたりの位相の進み、ラジアン)
+	static constexpr float kIdleBobSpeed = 2.0f;
+	// 待機中に左右へ首を振る最大の角度(ラジアン)
+	static constexpr float kIdleSwayAngle = 0.06f;
+	// 首振りの速さ(浮き沈みと周期をずらし、動きが単調にならないようにする)
+	static constexpr float kIdleSwaySpeed = 1.3f;
 };

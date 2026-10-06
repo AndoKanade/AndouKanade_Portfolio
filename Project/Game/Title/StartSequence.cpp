@@ -2,6 +2,7 @@
 #include "Title/TitleLogo.h"
 #include "Title/TitleUI.h"
 #include "Input.h"
+#include <cmath>
 
 StartSequence::StartSequence() = default;
 StartSequence::~StartSequence() = default;
@@ -20,6 +21,7 @@ void StartSequence::Initialize(Obj3dCommon* object3dCommon,SpriteCommon* spriteC
 // タイトルから始める
 void StartSequence::Start(){
 	phase_ = Phase::Title;
+	playerHopTimer_ = 0.0f;
 	cameraDirector_.Reset();
 	countdown_.Stop();
 	if(titleLogo_){
@@ -45,8 +47,16 @@ void StartSequence::Update(float deltaTime){
 		if(titleUI_){
 			titleUI_->Update(deltaTime,kTitleVisible);
 		}
+		// タイトルロゴの登場演出と、着地後の揺れを進める
+		if(titleLogo_){
+			titleLogo_->UpdateAppear(deltaTime);
+			titleLogo_->UpdateIdle(deltaTime);
+		}
+		// プレイヤーが跳ねる周期を進める
+		playerHopTimer_ += deltaTime;
+		// 登場演出の途中で消える演出と重ならないよう、ロゴが着地してから入力を受け付ける
 		// スタートと同時にタイトルロゴを縮めて消し始め、回り込むカメラにかぶらないようにする
-		if(input_ && input_->TriggerKey(DIK_SPACE)){
+		if((!titleLogo_ || titleLogo_->IsAppearFinished()) && input_ && input_->TriggerKey(DIK_SPACE)){
 			cameraDirector_.BeginTurn();
 			if(titleLogo_){
 				titleLogo_->BeginHide();
@@ -58,6 +68,10 @@ void StartSequence::Update(float deltaTime){
 	case Phase::CameraTurn:
 		// 回り込みの進行に合わせてタイトル表示を薄くしていく
 		cameraDirector_.UpdateTurn(deltaTime);
+		// スタート時に跳ねている途中なら、着地するまでは跳ねを進める(着地後は高さ0のまま止まる)
+		if(GetPlayerHopHeight() > 0.0f){
+			playerHopTimer_ += deltaTime;
+		}
 		if(titleLogo_){
 			titleLogo_->UpdateHide(deltaTime);
 		}
@@ -108,6 +122,24 @@ void StartSequence::Draw2D(){
 	if(titleUI_ && IsControllingCamera()){
 		titleUI_->Draw();
 	}
+}
+
+// タイトル中にプレイヤーをその場で跳ねさせる高さ
+float StartSequence::GetPlayerHopHeight() const{
+	if(!IsControllingCamera()){
+		return 0.0f;
+	}
+
+	// 周期の中での経過時間を求め、周期の最後の kPlayerHopDuration 秒間だけ跳ねさせる
+	float cycleTime = std::fmod(playerHopTimer_,kPlayerHopInterval);
+	float hopStartTime = kPlayerHopInterval - kPlayerHopDuration;
+	if(cycleTime < hopStartTime){
+		return 0.0f;
+	}
+
+	// 跳ねている間の進行度(0〜1)をsinの半周期に当てはめ、山なりに上がって下りる高さにする
+	float hopProgress = (cycleTime - hopStartTime) / kPlayerHopDuration;
+	return kPlayerHopHeight * std::sin(hopProgress * kPi);
 }
 
 // 演出中のカメラ座標・向きを求める

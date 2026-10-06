@@ -38,9 +38,13 @@ private:
 
 	// PRESS SPACE の表示(仮)
 	std::unique_ptr<Sprite> pressSprite_;
+	// タイトル開始時に黒から明るくするための、画面全体を覆うスプライト
+	std::unique_ptr<Sprite> fadeSprite_;
 
 	// 点滅の経過時間
 	float blinkTime_ = 0.0f;
+	// フェードインの経過時間(秒)
+	float fadeTimer_ = 0.0f;
 	// 表示の濃さ(0のときは描画しない)
 	float visibility_ = 1.0f;
 
@@ -52,4 +56,8 @@ private:
 	static constexpr float kBlinkSpeed = 4.0f;
 	// 点滅で最も薄くなったときの濃さ
 	static constexpr float kBlinkMinAlpha = 0.2f;
+	// 明るくし始める前に、真っ黒のまま止めておく時間(秒)
+	static constexpr float kFadeHoldTime = 0.2f;
+	// 明るくし始めてから完全に明るくなるまでの時間(秒)
+	static constexpr float kFadeInDuration = 1.0f;
 };
