@@ -25,7 +25,7 @@ void Framework::Initialize(){
 	// WinAPIの初期化
 	// ウィンドウサイズは kClientWidth/kClientHeight に一元化(スワップチェーン等と必ず一致させるため)
 	winApi_ = std::make_unique<WinAPI>();
-	winApi_->Initialize(L"Andou_Kanade_就職作品",WinAPI::kClientWidth,WinAPI::kClientHeight);
+	winApi_->Initialize(L"ラインジャンパー",WinAPI::kClientWidth,WinAPI::kClientHeight);
 
 	// DirectXの初期化
 	dxCommon_ = std::make_unique<DXCommon>();
