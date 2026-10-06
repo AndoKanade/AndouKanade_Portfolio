@@ -434,6 +434,10 @@ void GameScene::Update(){
 			startSequence_->Start();
 		} else if(!isPlayMode && wasPlayMode_){
 			startSequence_->Stop();
+		} else if(isPlayMode && input_ && input_->TriggerKey(DIK_R)){
+			// 確認用の一時的な処理:Play中にRキーでタイトルから最初からやり直す
+			ResetPlayState();
+			startSequence_->Start();
 		}
 		wasPlayMode_ = isPlayMode;
 
