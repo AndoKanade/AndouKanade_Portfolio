@@ -9,6 +9,13 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <algorithm>
+#include <cmath>
+
+namespace{
+    // 2点の中点を求めるときに掛ける係数
+    constexpr float kHalf = 0.5f;
+}
 
 //=============================================================================
 // 初期化・リソース生成
@@ -20,6 +27,9 @@ void Model::Initialize(ModelCommon* modelCommon,const std::string& directorypath
     // ファイルからモデルデータの読み込み
     modelData = LoadModelFile(directorypath,filename);
 
+    // 当たり判定用の境界球を頂点データから求める
+    CalculateBoundingSphere();
+
     // テクスチャのロードとSRVインデックスの取得
     TextureManager::GetInstance()->LoadTexture(modelData.material.textureFilePath);
     modelData.material.textureIndex = TextureManager::GetInstance()->GetSrvIndex(modelData.material.textureFilePath);
@@ -28,6 +38,37 @@ void Model::Initialize(ModelCommon* modelCommon,const std::string& directorypath
     CreateVertexData();
     CreateIndexData();
     CreateMaterialData();
+}
+
+void Model::CalculateBoundingSphere(){
+    if(modelData.vertices.empty()){
+        return;
+    }
+
+    // 全頂点を包む箱(各軸の最小値・最大値)を求める
+    const Vector4& firstPosition = modelData.vertices.front().position;
+    Vector3 minPosition = {firstPosition.x, firstPosition.y, firstPosition.z};
+    Vector3 maxPosition = minPosition;
+    for(const VertexData& vertex : modelData.vertices){
+        minPosition.x = (std::min)(minPosition.x,vertex.position.x);
+        minPosition.y = (std::min)(minPosition.y,vertex.position.y);
+        minPosition.z = (std::min)(minPosition.z,vertex.position.z);
+        maxPosition.x = (std::max)(maxPosition.x,vertex.position.x);
+        maxPosition.y = (std::max)(maxPosition.y,vertex.position.y);
+        maxPosition.z = (std::max)(maxPosition.z,vertex.position.z);
+    }
+
+    // 箱の中心を球の中心にする(人型モデルのように原点が足元にあっても、体の中心に球が来る)
+    boundingSphere_.center = (minPosition + maxPosition) * kHalf;
+
+    // 中心から最も遠い頂点までの距離を半径にして、全頂点が球に収まるようにする
+    // 比較は距離の2乗で行い、平方根は最後に一度だけ計算する
+    float maxDistanceSq = 0.0f;
+    for(const VertexData& vertex : modelData.vertices){
+        Vector3 diff = Vector3{vertex.position.x, vertex.position.y, vertex.position.z} - boundingSphere_.center;
+        maxDistanceSq = (std::max)(maxDistanceSq,Dot(diff,diff));
+    }
+    boundingSphere_.radius = std::sqrt(maxDistanceSq);
 }
 
 void Model::CreateVertexData(){

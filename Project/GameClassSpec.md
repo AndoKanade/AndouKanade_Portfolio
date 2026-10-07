@@ -1,6 +1,6 @@
 # Game フォルダ クラス仕様書
 
-最終更新: 2026-09-30
+最終更新: 2026-10-07
 
 `Game/` 以下の各クラスについて、「何ができるか」「外から何を呼べるか」「中でどう動いているか」をまとめる。
 エンジン側（`Engine/`）のクラスは対象外。
@@ -14,9 +14,11 @@
 3. [scenes（シーン）](#3-scenesシーン)
 4. [Title（ステージ開始演出）](#4-titleステージ開始演出)
 5. [objects（ゲームオブジェクト）](#5-objectsゲームオブジェクト)
-6. [Editor（配置エディター）](#6-editor配置エディター)
-7. [保存ファイル一覧](#7-保存ファイル一覧)
-8. [操作キー一覧](#8-操作キー一覧)
+6. [Camera（カメラ）](#6-cameraカメラ)
+7. [UI](#7-ui)
+8. [Editor（配置エディター）](#8-editor配置エディター)
+9. [保存ファイル一覧](#9-保存ファイル一覧)
+10. [操作キー一覧](#10-操作キー一覧)
 
 ---
 
@@ -27,7 +29,9 @@ Game/
 ├── systems/   シーンの生成・切り替えの仕組み
 ├── scenes/    GameScene（本編）、ClearScene、GameOverScene
 ├── Title/     GameScene 内で動くステージ開始演出（タイトル → 回り込み → カウントダウン）
-├── objects/   Enemy（雑魚敵）
+├── objects/   Player / PlayerBulletManager / TargetManager / Enemy / EnemyManager / Ground
+├── Camera/    RailCamera（プレイ用カメラ）/ DebugTopCamera（俯瞰デバッグカメラ）
+├── UI/        Reticle（画面中央のレティクル）
 └── Editor/    RailEditor / TargetEditor / EnemyEditor（Editモード中の配置ツール）
 ```
 
@@ -107,6 +111,7 @@ Game/
 ### GameScene（`scenes/GameScene.h/.cpp`）
 
 本編。レールに沿ってカメラとプレイヤーが進み、的と敵を撃つ。
+プレイヤー・カメラ・弾・的・敵などの処理はそれぞれのクラスに任せ、GameScene は「呼び出す順番」「Edit / Play モードの切り替え」「開始演出とのつなぎ」「勝敗判定」「デバッグ表示」を担当する。
 
 #### 持っているもの
 
@@ -114,90 +119,87 @@ Game/
 | --- | --- |
 | `skybox_` | 背景のスカイボックス |
 | `railEditor_` | レールのデータと編集ツール（RailEditor） |
-| `groundTiles_` | 簡易的な地面（板モデルを格子状に並べたもの） |
-| `targetEditor_` / `targets_` | 的の配置データ（TargetEditor）と、描画・判定用の的のリスト |
-| `enemyEditor_` / `enemies_` | 敵の配置データ（EnemyEditor）と、実体の Enemy のリスト |
-| `player_` | プレイヤーの人型モデル（`human/walk.gltf`、青色） |
-| `bullets_` | プレイヤーの弾のリスト |
+| `ground_` | 簡易的な地面（Ground） |
+| `player_` | プレイヤー（Player） |
+| `railCamera_` | レール追従カメラ（RailCamera） |
+| `debugTopCamera_` | 俯瞰デバッグカメラ（DebugTopCamera） |
+| `bulletManager_` | プレイヤーの弾（PlayerBulletManager） |
+| `targetManager_` | 的（TargetManager） |
+| `enemyManager_` | 雑魚敵（EnemyManager） |
 | `startSequence_` | ステージ開始演出（StartSequence）。タイトルロゴもこの中で表示する |
-| `reticleOutlineSprite_` / `reticleCenterSprite_` | 画面中央のレティクル |
+| `reticle_` | 画面中央のレティクル（Reticle） |
 
 #### 初期化（Initialize）
 
-1. カメラ `"default"`（プレイ用）と `"debug_top"`（俯瞰デバッグ用）を作る。
-2. スカイボックス、RailEditor、地面タイルを生成する。地面はレールの開始地点を基準に並べる。
-3. プレイヤーのモデルを読み込む。
-4. GlobalVariables（グループ名 `GameScene`）に調整項目を登録する。
-5. TargetEditor / EnemyEditor を生成する。保存データが無い初回起動時だけ自動配置する。
-   - 的：レール上の 16 か所に、左右交互・上下・奥行きをずらして配置
-   - 敵：レールの中間地点（t = 0.5）の少し上に 1 体
-6. レティクルのスプライト、撃破演出用パーティクルのグループ、StartSequence を生成する。
+1. カメラ `"default"`（プレイ用）を作る。
+2. スカイボックス、RailEditor、Ground を生成する。地面はレールの開始地点を基準に並べる。
+3. GlobalVariables にグループ `GameScene` を作る。調整項目は各クラスが自分の Initialize で登録する。
+4. Player、RailCamera、DebugTopCamera（カメラ `"debug_top"` を作る）、PlayerBulletManager を生成する。
+5. TargetManager / EnemyManager を生成する。保存データが無い初回起動時だけ自動配置する。
+6. Reticle、撃破演出用パーティクルのグループ、StartSequence を生成する。
 
 #### 毎フレームの更新（Update）の流れ
 
-1. スカイボックス・パーティクル・地面・レティクル・各エディターを更新する。エディターの編集結果は `SyncTargetsFromEditor()` / `SyncEnemiesFromEditor()` で的・敵のリストに反映する。
-2. GlobalVariables から最新の調整値を読む。
-3. Play に入った瞬間は `ResetPlayState()` と `startSequence_->Start()` を呼ぶ。Edit に戻った瞬間は `startSequence_->Stop()` を呼ぶ。
-4. Play 中は `startSequence_->Update()` を呼ぶ。
-5. `isGameplayActive`（Play 中かつ開始演出が終わってプレイ可能）のときだけ、次のゲーム処理を動かす。
-   - レールの進行
-   - マウスでの照準
-   - ジャンプ・WASD 移動・着地判定
-   - 射撃
-   - 敵の移動と攻撃
-   - 敵弾の当たり判定
-   - クリア判定・ゲームオーバー判定
-6. カメラをレール上に置き、プレイヤーをカメラの前方に置く。開始演出中は、StartSequence が計算した位置・向きでカメラを上書きする。
-7. 的・敵・弾の当たり判定を行い、描画用の行列を更新する。
-8. デバッグ用のキー操作（F1 / F4 / F5）と ImGui パネルを処理する。
+1. スカイボックス・パーティクル・地面・レティクル・各エディターを更新する。的・敵のエディターの編集結果は、TargetManager / EnemyManager の `UpdateEditor()` で的・敵のリストに反映する。
+2. `UpdateGameplay()` で次の処理を順番に行う。
+   1. Play に入った瞬間は `ResetPlayState()` と `startSequence_->Start()` を呼ぶ。Edit に戻った瞬間は `startSequence_->Stop()` を呼ぶ。
+   2. Play 中は `startSequence_->Update()` を呼び、`isGameplayActive`（Play 中かつ開始演出が終わってプレイ可能）を求める。
+   3. マウスカーソルの表示を切り替える（`UpdateCursorVisibility()`）。
+   4. `Player::UpdateRailProgress()` でレールを進め、`Player::UpdateBasePose()` で基準位置・基準向きを求める。
+   5. `RailCamera::Update()` でカメラを置き、照準の入力を反映する。
+   6. クリア判定と、状態確認用のデバッグウィンドウ（`ShowStatusWindow()`）。
+   7. `Player::UpdateTransform()` でプレイヤーをカメラの前方に置く。開始演出中は、StartSequence が計算した位置・向きでカメラを上書きする。
+   8. 敵の更新、敵弾とプレイヤーの当たり判定、ゲームオーバー判定。
+   9. `Player::UpdateMovement()` でジャンプ・WASD 移動・着地判定を行う。地面まで落ちたら `ResetPlayState()` を呼ぶ。
+   10. 射撃、弾の移動、的・敵と弾の当たり判定、弾の削除と行列の更新、レティクルの色の更新。
+3. デバッグ用のキー操作（F1 / F4 / F5）と、Edit モード中の ImGui パネル（`ShowEditorPanels()`）を処理する。
+
+- 4〜10 のうち入力・移動・当たり判定・勝敗判定は、`isGameplayActive` が true のときだけ動く。Edit 中・開始演出中は表示の更新だけ行う。
 
 #### ゲームの仕様
 
 | 項目 | 内容 |
 | --- | --- |
-| レール移動 | `railT_`（0〜1）を「制御点ごとの Speed × `railSpeed` × 経過時間」で進める。終端（1.0）で止まり、クリアになる |
-| カメラ | レール上の点から `cameraHeightOffset` だけ上に置く。向きは「レールの向き＋マウスの照準オフセット」 |
-| 照準 | マウス移動量 × `mouseSensitivity`。左右は `aimYawLimit`、上下は `aimPitchLimit` の範囲に制限する |
-| プレイヤーの位置 | カメラの前方 `kCameraBackOffset_`（6.0）の位置から、少し下 |
-| ジャンプ | LSHIFT でレールを離れる。上向きの初速は `kJumpSpeed_`（6.0）で、重力は `kPlayerGravity_`（9.8） |
-| オフレール移動 | WASD で、カメラ基準の水平方向へ `kPlayerMoveSpeed_`（8.0）で動く |
-| 着地 | 落下中に「水平距離が `kOnRailHorizontalThreshold_`（1.0）以内」かつ「前フレームより下へレールの高さを跨いだ」ら、そのレールに乗り移る |
-| 落下リスタート | どのレールにも乗れずに地面の高さ（`kGroundHeight_` = -3.0）まで落ちたら `ResetPlayState()` を呼ぶ。開始演出は挟まない |
-| 射撃 | SPACE で、カメラの位置から前方へ弾を発射する。速度 40、重力 9.8、寿命 2 秒 |
-| 的 | 弾との距離が `kBulletHitRadius_`（0.6）以下で撃破し、火花パーティクルを出す。レティクルが的を捉えていると、的が大きくなり中心ドットが赤くなる |
-| 敵へのダメージ | 弾 1 発につき `kBulletDamageToEnemy_`（1）減る |
-| プレイヤーの体力 | 最大 3。敵弾が当たると 1 減り、1 秒間は無敵になる。0 になると GAMEOVER |
+| 射撃 | SPACE で、カメラの位置から前方へ弾を発射する |
+| 落下リスタート | どのレールにも乗れずに地面の高さまで落ちたら `ResetPlayState()` を呼ぶ。開始演出は挟まない |
+| クリア | オンレール中にレールの終端に着いたら CLEAR へ移る |
+| ゲームオーバー | プレイヤーの体力が 0 になったら GAMEOVER へ移る |
+| 当たり判定 | すべてモデルの頂点から求めた境界球（`Model::BoundingSphere`）同士の重なりで判定する。プレイヤー・敵本体はワールド行列で変換した球（`Obj3D::GetWorldBoundingSphere()`）、弾・的は現在座標と表示スケールから求めた球を使う |
+
+- レール移動・ジャンプ・体力などプレイヤーの仕様は Player、カメラと照準の仕様は RailCamera、弾の仕様は PlayerBulletManager、的の仕様は TargetManager を参照。
 
 #### 主な関数
 
 | 関数 | 内容 |
 | --- | --- |
-| `ResetPlayState()` | レール位置を先頭へ戻し、アクティブレールを 0 番に、オンレール状態にする。的の復活、弾の消去、敵の `Reset()`、体力と無敵時間の初期化も行う |
-| `SyncTargetsFromEditor()` | TargetEditor の個数・座標を的のリストに反映する。個数が変わったときだけ生成・削除する |
-| `SyncEnemiesFromEditor()` | EnemyEditor の内容を敵のリストに反映する。体数が変わったときだけ生成・削除する |
-| `CreateGroundTiles()` | 地面タイルを 45 枚（奥 8・手前 1・横 5）並べる |
+| `ResetPlayState()` | Player・RailCamera・TargetManager・EnemyManager を初期状態に戻し、弾を消し、アクティブレールを 0 番にする |
+| `UpdateGameplay()` | レール進行・カメラ・プレイヤー・敵・弾・的・勝敗判定を、決まった順番で呼び出す |
+| `UpdateCursorVisibility(isPlayMode)` | Edit 中はカーソルを常に表示し、Play 中は TAB で表示を切り替える |
+| `ShowStatusWindow()` | 「Rail Branch Debug」ウィンドウを表示する（ImGui がある構成のみ） |
+| `ShowEditorPanels()` | 「GameScene Debug」「Hierarchy」「Inspector」パネルを表示する（ImGui がある構成のみ） |
 
 #### GlobalVariables の調整項目（グループ `GameScene`）
 
 `resource/GlobalVariables/GameScene.json` に保存され、実行中の ImGui 編集と外部ファイルの書き換えが反映される。
+グループは GameScene が作り、各項目は担当するクラスが登録・取得する。
 
-| キー | 初期値 | 内容 |
-| --- | --- | --- |
-| `railSpeed` | 0.05 | レール全体の進行速度 |
-| `cameraHeightOffset` | 1.25 | カメラをレールより上に置く量 |
-| `mouseSensitivity` | 0.0004 | マウス照準の感度 |
-| `aimYawLimit` | 0.6 | 照準の左右の可動範囲（ラジアン） |
-| `aimPitchLimit` | 0.5 | 照準の上下の可動範囲（ラジアン） |
-| `aimHitAngle` | 0.09 | レティクルが的を捉えたとみなす角度（ラジアン） |
+| キー | 初期値 | 登録するクラス | 内容 |
+| --- | --- | --- | --- |
+| `railSpeed` | 0.05 | Player | レール全体の進行速度 |
+| `cameraHeightOffset` | 1.25 | RailCamera | カメラをレールより上に置く量 |
+| `mouseSensitivity` | 0.0004 | RailCamera | マウス照準の感度 |
+| `aimYawLimit` | 0.6 | RailCamera | 照準の左右の可動範囲（ラジアン） |
+| `aimPitchLimit` | 0.5 | RailCamera | 照準の上下の可動範囲（ラジアン） |
+| `aimHitAngle` | 0.09 | TargetManager | レティクルが的を捉えたとみなす角度（ラジアン） |
 
 #### ImGui 表示
 
 | ウィンドウ | 表示するモード | 内容 |
 | --- | --- | --- |
-| Rail Branch Debug | 常時 | レールの本数、アクティブレール、進行度、オンレール状態、敵の体力、プレイヤーの体力など |
-| GameScene Debug | Edit のみ | カメラ座標・回転の編集、俯瞰カメラの切り替え、ライティング |
-| Hierarchy | Edit のみ | 的の一覧。クリックで選択できる |
-| Inspector | Edit のみ | 選択中の的の座標・生存フラグの編集 |
+| Rail Branch Debug | 常時 | レールの本数、アクティブレール、進行度、オンレール状態、敵の体力（EnemyManager が表示）、プレイヤーの体力など |
+| GameScene Debug | Edit のみ | カメラ座標・回転の編集、俯瞰カメラの切り替え（DebugTopCamera が表示）、ライティング |
+| Hierarchy | Edit のみ | 的の一覧。クリックで選択できる（TargetManager が表示） |
+| Inspector | Edit のみ | 選択中の的の座標・生存フラグの編集（TargetManager が表示） |
 
 ### ClearScene（`scenes/ClearScene.h/.cpp`）
 
@@ -410,14 +412,161 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | `Draw()` | 本体（生存中のみ）と、発射中の弾を描画する |
 | `Reset()` | 位置・向き・体力・弾・攻撃の順番を初期状態に戻す |
 | `TakeDamage(int)` | 体力を減らす。この攻撃で撃破されたら true を返す |
-| `CheckHitToPlayer(playerPosition, radius)` | 敵弾とプレイヤーの当たり判定。当たった弾を消し、その数を返す |
+| `CheckHitToPlayer(playerSphere)` | 敵弾とプレイヤーの当たり判定。弾の境界球とプレイヤーの境界球が重なったら弾を消し、その数を返す |
 | `SetBasePosition` / `SetPatrolDirection` / `SetMaxHp` | 配置エディターの編集を反映する |
-| `GetPosition` / `IsAlive` / `GetHp` / `GetMaxHp` / `GetHitRadius` | 状態の取得（当たり半径は 1.0） |
+| `GetPosition` / `IsAlive` / `GetHp` / `GetMaxHp` | 状態の取得 |
+| `GetHitSphere()` | 本体のモデルから求めたワールド座標系の境界球を取得する（当たり判定用） |
 | `IsDetectingPlayer` / `GetActiveBulletCount` | デバッグ表示用の取得 |
+
+### Player（`objects/Player.h/.cpp`）
+
+プレイヤー。レールに沿って自動で進み、ジャンプでレールを離れると WASD で自由に動ける。体力を持つ。
+
+#### 仕様
+
+| 項目 | 内容 |
+| --- | --- |
+| 見た目 | `human/walk.gltf`（青色）、スケール 0.3 |
+| レール移動 | `railT_`（0〜1）を「制御点ごとの Speed × `railSpeed` × 経過時間」で進める。終端（1.0）で止まる |
+| 表示位置 | 基準位置（オンレール中はレール上の点、オフレール中は自由移動の座標）から、カメラの前方 6.0 の位置の少し下（0.1） |
+| ジャンプ | LSHIFT でレールを離れる。上向きの初速は 6.0、重力は 9.8。離れた瞬間の向きをオフレール中の基準向きとして固定する |
+| オフレール移動 | WASD で、カメラ基準の水平方向へ 8.0 で動く |
+| 着地 | 落下中に「水平距離が `kOnRailHorizontalThreshold`（1.0）以内」かつ「前フレームより下へレールの高さを跨いだ」ら、そのレールに乗り移る |
+| 体力 | 最大 3。敵弾が当たると 1 減り、1 秒間は無敵になる。被弾位置に火花パーティクルを出す |
+
+#### 関数
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(Obj3dCommon*, paramGroup)` | モデルの生成と、調整項目 `railSpeed` の登録 |
+| `Reset()` | レール先頭・オンレール・体力満タンの状態に戻す |
+| `UpdateRailProgress(railEditor, isGameplayActive, deltaTime)` | プレイ可能かつオンレール中、かつ終端未到達のときだけレールを進める |
+| `UpdateBasePose(railEditor)` | オンレール / オフレールに応じて、カメラ・プレイヤーの共通の基準位置と基準向きを求める |
+| `UpdateTransform(cameraForward, hopHeight)` | 表示位置を求め、モデルの行列を更新する。タイトル中の跳ね（`hopHeight`）は見た目だけに反映する |
+| `UpdateInvincible(deltaTime)` | 無敵時間を進める |
+| `TakeDamage()` | 無敵中でなければ体力を 1 減らし、無敵時間を始める |
+| `UpdateMovement(input, railEditor, cameraForward, cameraRight, groundHeight, deltaTime)` | ジャンプ・WASD 移動・着地判定。地面まで落ちてリスタートが必要になったら true を返す |
+| `GetHitSphere()` | モデルから求めたワールド座標系の境界球を取得する（当たり判定用） |
+| `GetPosition` / `GetBasePosition` / `GetBaseRotation` | 表示位置・基準位置・基準向きの取得 |
+| `HasReachedGoal` / `IsDead` | クリア・ゲームオーバーの判定用 |
+| `GetRailT` / `IsOnRail` / `GetFreeVelocityY` / `GetHp` / `GetMaxHp` / `GetInvincibleTimer` | デバッグ表示用の取得 |
+
+### PlayerBulletManager（`objects/PlayerBulletManager.h/.cpp`）
+
+プレイヤーの弾の管理。
+
+| 項目 | 内容 |
+| --- | --- |
+| 見た目 | `Sphere/sphere.obj`（青色）、スケール 0.15 |
+| 弾道 | 速度 40、重力 9.8、寿命 2 秒 |
+| ダメージ | 敵 1 体に 1 発あたり 1 |
+| 生成 | 発射のたびに `make_unique<Obj3D>` で生成している（使い回しは未対応） |
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(Obj3dCommon*)` | 弾のモデルを読み込む |
+| `Fire(position, direction)` | 弾を 1 発発射する |
+| `Move(deltaTime)` | 移動と生存時間の更新 |
+| `CheckHit(sphere)` | 指定した境界球に重なる弾を 1 発探し、見つかればその弾を消して true を返す |
+| `RemoveDeadBullets()` | 命中・寿命切れの弾をリストから削除する |
+| `UpdateTransforms()` | 描画用の行列を更新する |
+| `Draw()` / `Clear()` | 描画 / すべての弾を消す |
+| `GetDamage()` | 弾 1 発のダメージ量を取得する |
+
+### TargetManager（`objects/TargetManager.h/.cpp`）
+
+的の管理。TargetEditor の配置データを的のリストに反映し、照準判定・弾との当たり判定・描画を行う。
+
+| 項目 | 内容 |
+| --- | --- |
+| 見た目 | `Sphere/sphere.obj`、スケール 0.4（狙えているときは 0.6） |
+| 照準判定 | 「カメラ → 的」の向きとカメラの前方ベクトルのなす角が `aimHitAngle` 以内なら狙えている。的が大きくなり、レティクルの中心ドットが赤くなる |
+| 命中 | 弾と的の境界球が重なったら撃破し、火花パーティクルを出す |
+| 初回の自動配置 | 保存データが無いとき、レール上の 16 か所に左右交互・上下・奥行きをずらして配置する |
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(Obj3dCommon*, railEditor, paramGroup)` | 調整項目 `aimHitAngle` の登録、TargetEditor の生成、初回の自動配置 |
+| `UpdateEditor()` | TargetEditor を更新し、個数・座標を的のリストに反映する。個数が変わったときだけ生成・削除する |
+| `Update(cameraPosition, cameraForward, bullets)` | 照準判定・弾との当たり判定・行列の更新。いずれかの的を狙えていれば true を返す |
+| `Reset()` / `Draw()` | 全ての的を復活させる / 生存している的を描画する |
+| `ShowHierarchy()` / `ShowInspector()` | Hierarchy / Inspector パネルの中身を表示する（ImGui がある構成のみ） |
+
+### EnemyManager（`objects/EnemyManager.h/.cpp`）
+
+雑魚敵の管理。EnemyEditor の配置データを敵のリストに反映し、更新・当たり判定・描画をまとめて行う。
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(Obj3dCommon*, railEditor)` | EnemyEditor の生成。保存データが無いときは、レールの中間地点（t = 0.5）の少し上（1.0）に 1 体置く |
+| `UpdateEditor()` | EnemyEditor を更新し、座標・往復方向・体力を敵のリストに反映する。体数が変わったときだけ生成・削除する |
+| `Update(playerPosition, deltaTime)` | 全ての敵を更新する |
+| `CheckHitToPlayer(playerSphere)` | 全ての敵の弾とプレイヤーの当たり判定。命中した弾の合計数を返す |
+| `CheckHitByBullets(bullets)` | プレイヤーの弾と敵本体の当たり判定。当たった敵の体力を減らし、火花パーティクルを出す |
+| `Reset()` / `Draw()` | 全ての敵を初期状態に戻す / 描画する |
+| `ShowDebugInfo()` | 生存数・弾の数・体ごとの体力を表示する（ImGui がある構成のみ） |
+
+### Ground（`objects/Ground.h/.cpp`）
+
+簡易的な地面。`Plane/plane.obj` を X 軸に -90° 回して水平にし、レールの開始地点を基準に 45 枚（奥 8・手前 1・横 5）並べる。1 枚の 1 辺は 20、高さは -3.0 で一定。
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(Obj3dCommon*, startPosition, forward)` | 地面タイルを生成する |
+| `Update()` / `Draw()` | 行列の更新 / 描画 |
+| `GetHeight()` | 地面の高さを取得する（落下リスタートの判定に使う） |
 
 ---
 
-## 6. Editor（配置エディター）
+## 6. Camera（カメラ）
+
+### RailCamera（`Camera/RailCamera.h/.cpp`）
+
+レール追従カメラ（三人称視点のプレイ用カメラ）。計算した位置・向きをカメラ `"default"` に反映する。
+
+| 項目 | 内容 |
+| --- | --- |
+| 位置 | プレイヤーの基準位置から `cameraHeightOffset` だけ上 |
+| 向き | 基準向き＋マウスの照準オフセット |
+| 照準 | マウス移動量 × `mouseSensitivity`。左右は `aimYawLimit`、上下は `aimPitchLimit` の範囲に制限する |
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(paramGroup)` | 調整項目（`cameraHeightOffset` / `mouseSensitivity` / `aimYawLimit` / `aimPitchLimit`）の登録 |
+| `Reset()` | 照準オフセットを 0 に戻す |
+| `Update(basePosition, baseRotation, isInputEnabled, input)` | 位置・向き・前方ベクトル・右方向ベクトルを計算し、カメラに反映する |
+| `GetPosition` / `GetRotation` / `GetForward` / `GetRight` | 計算結果の取得 |
+
+### DebugTopCamera（`Camera/DebugTopCamera.h/.cpp`）
+
+レール全体を真上から見下ろす俯瞰デバッグカメラ（カメラ `"debug_top"`）。
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(Obj3dCommon*)` | カメラを生成し、高さ 30 から真下を向かせる |
+| `HandleToggleKey(input, railEditor)` | F1 で切り替える。ON にした瞬間に、制御点全体が映る高さ（半径 × 2.2 ＋ 10）に合わせる |
+| `UpdateMove(input)` | 有効な間、WASD で平面移動、QE で高さを移動する（速度 10） |
+| `ShowToggleCheckbox(railEditor)` | ImGui の切り替え用チェックボックス（ImGui がある構成のみ） |
+| `IsEnabled()` | 有効かどうかを取得する |
+
+---
+
+## 7. UI
+
+### Reticle（`UI/Reticle.h/.cpp`）
+
+画面中央固定のレティクル。外枠（`Reticle/reticleOutline.png`）と中心ドット（`Reticle/reticle.png`）の 2 枚構成で、どちらも 48 × 48。
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(SpriteCommon*)` | スプライトを生成し、画面中央に置く |
+| `Update()` | 行列の更新 |
+| `SetAiming(bool)` | 狙えているときは中心ドットを赤、それ以外は白にする |
+| `Draw()` | スプライト共通の描画前処理を行ってから描画する |
+
+---
+
+## 8. Editor（配置エディター）
 
 3 つとも Edit モード中だけ動く。Play モード中は `Update()` の冒頭で何もせずに戻る。
 
@@ -509,7 +658,7 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 
 ---
 
-## 7. 保存ファイル一覧
+## 9. 保存ファイル一覧
 
 | ファイル | 保存するクラス | 内容 | 反映のしかた |
 | --- | --- | --- | --- |
@@ -521,7 +670,7 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 
 ---
 
-## 8. 操作キー一覧
+## 10. 操作キー一覧
 
 ### タイトル中（Play モード）
 

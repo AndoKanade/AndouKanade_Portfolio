@@ -53,6 +53,12 @@ public:
 	Model::Material* GetMaterial() const{ return materialData; }
 	Skeleton& GetSkeleton(){ return skeleton_; }
 
+	/// <summary>
+	/// モデルの境界球をワールド座標系へ変換して取得する(当たり判定用)
+	/// 直前のUpdate()で計算したワールド行列を使うため、位置・回転・拡大率の変更後はUpdate()してから呼ぶこと
+	/// </summary>
+	Model::BoundingSphere GetWorldBoundingSphere() const;
+
 private:
 	void CreateTransformationMatrixData();
 	void CreateMaterialData();
