@@ -26,6 +26,7 @@ void Obj3D::Initialize(Obj3dCommon* object3dCommon){
     if(materialData){
         materialData->color = {1.0f, 1.0f, 1.0f, 1.0f};
         materialData->enableLighting = 1;
+        materialData->alphaCutoff = Model::kDefaultAlphaCutoff;
         materialData->uvTransform = MakeIdentity4x4();
         materialData->shininess = 20.0f;
         materialData->environmentCoefficient = 0.0f;
