@@ -255,6 +255,12 @@
     <ClCompile Include="Game\objects\Enemy.cpp">
       <Filter>ソース ファイル\Game\objects</Filter>
     </ClCompile>
+    <ClCompile Include="Game\objects\CloudWave.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\objects\Sun.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
     <ClCompile Include="Game\objects\Ground.cpp">
       <Filter>ソース ファイル\Game\objects</Filter>
     </ClCompile>
@@ -435,6 +441,12 @@
       <Filter>ヘッダー ファイル\Game\Editor</Filter>
     </ClInclude>
     <ClInclude Include="Game\objects\Enemy.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\CloudWave.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\Sun.h">
       <Filter>ヘッダー ファイル\Game\objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\objects\Ground.h">

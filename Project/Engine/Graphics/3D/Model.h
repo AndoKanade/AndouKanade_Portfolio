@@ -53,11 +53,16 @@ public:
 	struct Material{
 		Vector4 color;
 		int32_t enableLighting;
-		float padding[3];
+		// テクスチャのアルファがこの値以下のピクセルは描画しない(半透明にしたいものは0にする)
+		float alphaCutoff;
+		float padding[2];
 		Matrix4x4 uvTransform;
 		float shininess;
 		float environmentCoefficient;
 	};
+
+	// アルファテストの既定のしきい値(半分以上透けているピクセルは描画しない)
+	static constexpr float kDefaultAlphaCutoff = 0.5f;
 
 	// 当たり判定用の境界球(モデルの全頂点を包む球)
 	struct BoundingSphere{
@@ -81,6 +86,13 @@ public:
 	void Draw(uint32_t skyboxTextureIndex,D3D12_GPU_VIRTUAL_ADDRESS cameraAddress,SkinCluster* skinCluster = nullptr);
 	// テクスチャのセット
 	void SetTexture(const std::string& texturefilePath);
+
+	/// <summary>
+	/// 頂点バッファの中身を書き換える(頂点を動かすアニメーション用)
+	/// 頂点数は読み込み時と同じであること。インデックスは変わらない前提
+	/// </summary>
+	/// <param name="vertices">書き込む頂点データ</param>
+	void UpdateVertices(const std::vector<VertexData>& vertices);
 
 	// RootNodeの取得
 	const Node& GetRootNode() const{ return modelData.rootNode; }

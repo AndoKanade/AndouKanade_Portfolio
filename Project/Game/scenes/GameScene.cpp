@@ -22,6 +22,7 @@
 #include "Title/StartSequence.h"
 // ゲームオブジェクト
 #include "objects/Ground.h"
+#include "objects/Sun.h"
 #include "objects/Player.h"
 #include "objects/PlayerBulletManager.h"
 #include "objects/TargetManager.h"
@@ -90,6 +91,10 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	// ImGuiの "Global Variables" ウィンドウから実行中に編集・保存でき、
 	// resource/GlobalVariables/GameScene.json を外部で書き換えると自動反映される(ホットリロード)
 	GlobalVariables::GetInstance()->CreateGroup(kGameSceneGroup);
+
+	// 太陽の生成(方角はレール開始地点の進行方向を基準にする)
+	sun_ = std::make_unique<Sun>();
+	sun_->Initialize(kGameSceneGroup,railEditor_->GetForwardOnRail(0.0f));
 
 	// プレイヤーの生成
 	player_ = std::make_unique<Player>();
@@ -164,8 +169,11 @@ void GameScene::Update(){
 		ParticleManager::GetInstance()->Update(activeCamera);
 	}
 
-	// 地面タイルの更新
-	ground_->Update();
+	// 地面タイルの更新(霧のUVスクロールも行う)
+	ground_->Update(kDeltaTime);
+
+	// 太陽の光の向き・色・明るさを調整項目の最新値で更新する
+	sun_->Update();
 
 	// レティクルの更新
 	reticle_->Update();
@@ -447,7 +455,7 @@ void GameScene::ShowEditorPanels(){
 void GameScene::Draw(){
 	object3dCommon_->Draw();
 
-	// 簡易的な地面を描画(他のオブジェクトより先に描く)
+	// 雲海の雲の部分を描画(他のオブジェクトより先に描く)
 	ground_->Draw();
 
 	// レールエディターの描画
@@ -471,6 +479,9 @@ void GameScene::Draw(){
 
 	// 発射中の弾を描画
 	bulletManager_->Draw();
+
+	// 雲の上の霧を描画(半透明なので、奥にあるオブジェクトが透けて見えるよう3Dオブジェクトの最後に描く)
+	ground_->DrawFog();
 
 	// 撃破演出パーティクルの描画(3Dオブジェクトの後、2Dレティクルの前に描画する)
 	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){

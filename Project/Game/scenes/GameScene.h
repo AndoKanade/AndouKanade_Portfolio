@@ -13,6 +13,7 @@ class SkyboxCommon;
 class RailEditor;
 class StartSequence;
 class Ground;
+class Sun;
 class Player;
 class RailCamera;
 class DebugTopCamera;
@@ -73,6 +74,9 @@ private:
 
 	// 簡易的な地面
 	std::unique_ptr<Ground> ground_;
+
+	// 太陽(見た目は持たない光源)
+	std::unique_ptr<Sun> sun_;
 
 	// プレイヤー
 	std::unique_ptr<Player> player_;

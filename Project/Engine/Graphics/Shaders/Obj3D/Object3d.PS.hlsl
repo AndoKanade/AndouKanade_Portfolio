@@ -5,6 +5,7 @@ struct Material
 {
     float32_t4 color;
     int32_t enableLighting;
+    float32_t alphaCutoff;
     float32_t4x4 uvTransform;
     float32_t shininess;
     float32_t environmentCoefficient;
@@ -162,8 +163,8 @@ PixelShaderOutput main(VertexShaderOutput input)
     output.color.rgb = finalColor;
     output.color.a = gMaterial.color.a * textureColor.a;
 
-    // アルファテスト
-    if (textureColor.a <= 0.5f || output.color.a == 0.0f)
+    // アルファテスト(しきい値はマテリアルごとに指定し、霧などの半透明は0にして透明部分だけ捨てる)
+    if (textureColor.a <= gMaterial.alphaCutoff || output.color.a == 0.0f)
     {
         discard;
     }

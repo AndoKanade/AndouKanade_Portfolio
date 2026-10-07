@@ -114,6 +114,7 @@ void Model::CreateMaterialData(){
     // マテリアルの初期設定
     materialData->color = {1.0f, 1.0f, 1.0f, 1.0f};
     materialData->enableLighting = 1;
+    materialData->alphaCutoff = kDefaultAlphaCutoff;
     materialData->uvTransform = MakeIdentity4x4();
     materialData->shininess = 50.0f;
     materialData->environmentCoefficient = 0.0f;
@@ -278,4 +279,15 @@ void Model::SetTexture(const std::string& texturefilePath){
 
     modelData.material.textureIndex = TextureManager::GetInstance()->GetSrvIndex(texturefilePath);
     modelData.material.textureFilePath = texturefilePath;
+}
+
+void Model::UpdateVertices(const std::vector<VertexData>& vertices){
+    // 頂点数が違うと頂点バッファの範囲外に書き込んでしまうため、読み込み時と同じ数だけ受け付ける
+    assert(vertices.size() == modelData.vertices.size());
+
+    // 毎フレームGPUの処理完了を待ってから次のフレームを積むため、アップロードヒープへ直接書き込んでよい
+    VertexData* ptr = nullptr;
+    vertexResource->Map(0,nullptr,reinterpret_cast<void**>(&ptr));
+    std::memcpy(ptr,vertices.data(),sizeof(VertexData) * vertices.size());
+    vertexResource->Unmap(0,nullptr);
 }
