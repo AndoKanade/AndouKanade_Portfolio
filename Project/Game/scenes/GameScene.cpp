@@ -232,14 +232,16 @@ void GameScene::UpdateGameplay(){
 	// 開始演出もタイトルから始め、Editモードへ戻ったときは止める。
 	// 落下リスタートでは ResetPlayState() だけを呼ぶため、タイトルを挟まずにすぐ再開する
 	if(isPlayMode && !wasPlayMode_){
+		// 俯瞰デバッグカメラがONのままだとプレイ用の視点にならないため、Playに入ったら自動でOFFにする
+		debugTopCamera_->Disable();
 		ResetPlayState();
-		startSequence_->Start();
+		startSequence_->Start(skipTitle_);
 	} else if(!isPlayMode && wasPlayMode_){
 		startSequence_->Stop();
 	} else if(isPlayMode && input_ && input_->TriggerKey(DIK_R)){
 		// 確認用の一時的な処理:Play中にRキーでタイトルから最初からやり直す
 		ResetPlayState();
-		startSequence_->Start();
+		startSequence_->Start(skipTitle_);
 	}
 	wasPlayMode_ = isPlayMode;
 
@@ -331,9 +333,8 @@ void GameScene::UpdateGameplay(){
 		}
 	}
 
-	// 弾の発射処理(SPACEキーを押した瞬間に1発だけ発射する)
-	// タイトルのスタートもSPACEだが、押した瞬間はまだプレイ可能になっていないため弾は出ない
-	bool shootTriggered = isGameplayActive && input_ && input_->TriggerKey(DIK_SPACE);
+	// 弾の発射処理(左クリックした瞬間に1発だけ発射する)
+	bool shootTriggered = isGameplayActive && input_ && input_->TriggerMouseButton(kShootMouseButton);
 	if(shootTriggered){
 		bulletManager_->Fire(cameraPos,cameraForward);
 	}
@@ -370,7 +371,7 @@ void GameScene::ShowStatusWindow(){
 	if(!player_->IsOnRail()){
 		ImGui::Text("Free Velocity Y: %.2f",player_->GetFreeVelocityY());
 	}
-	ImGui::Text("Jump Key: LSHIFT");
+	ImGui::Text("Jump Key: SPACE");
 
 	// 雑魚敵のデバッグ表示
 	enemyManager_->ShowDebugInfo();
@@ -391,6 +392,9 @@ void GameScene::ShowEditorPanels(){
 	EditorWidgets::Layout L = EditorWidgets::ComputeLayout();
 	// デバッグ用のメインウィンドウ(下段・左)
 	EditorWidgets::BeginFixedPanel("GameScene Debug",L.bottomLeft);
+
+	// ONにすると、Playを押したときにタイトル演出を飛ばしてすぐプレイを始める(デバッグ用)
+	ImGui::Checkbox("Skip Title",&skipTitle_);
 
 	// カメラ設定のUI
 	if(ImGui::CollapsingHeader("Camera Settings")){

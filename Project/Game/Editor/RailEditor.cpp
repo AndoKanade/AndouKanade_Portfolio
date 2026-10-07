@@ -427,11 +427,16 @@ float RailEditor::ComputeNearestTOnRail(const std::vector<ControlPoint>& control
 }
 
 // 全レールの中から、指定したワールド座標に最も近いレール・進行度・距離を求める(着地先レールの探索用)
-RailEditor::NearestRailResult RailEditor::FindNearestRail(const Vector3& worldPos) const{
+RailEditor::NearestRailResult RailEditor::FindNearestRail(const Vector3& worldPos,int excludeRailIndex) const{
 	NearestRailResult result;
 	float bestDistance = -1.0f;
 
 	for(size_t i = 0; i < rails_.size(); ++i){
+		// 除外指定されたレールは探索しない
+		if(static_cast<int>(i) == excludeRailIndex){
+			continue;
+		}
+
 		float t = ComputeNearestTOnRail(rails_[i].controlPoints,worldPos);
 		Vector3 nearestPos = ComputePositionOnRail(rails_[i].controlPoints,t);
 		float distance = Distance(nearestPos,worldPos);

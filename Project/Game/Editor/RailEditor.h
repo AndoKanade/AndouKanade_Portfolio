@@ -52,7 +52,8 @@ public:
 	float GetSpeedOnRail(float t) const;
 
 	// 全レールの中から、指定したワールド座標に最も近いレール・進行度・距離を求める(着地先レールの探索用)
-	NearestRailResult FindNearestRail(const Vector3& worldPos) const;
+	// excludeRailIndexに指定したレールは探索対象から外す(-1: 除外なし。並走レールへの乗り換えで今のレールを外すのに使う)
+	NearestRailResult FindNearestRail(const Vector3& worldPos,int excludeRailIndex = -1) const;
 
 	// 指定インデックスのレールをアクティブなレールとして切り替える(Playモードでのレール乗り換えにも使用)
 	void SwitchActiveRail(int index);

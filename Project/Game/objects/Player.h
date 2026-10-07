@@ -99,6 +99,14 @@ public:
 	static constexpr float kOnRailHorizontalThreshold = 1.0f;
 
 private:
+	/// <summary>
+	/// 押した方向のすぐ横を並走しているレールへ直接乗り換える
+	/// </summary>
+	/// <param name="railEditor">乗り換え先を探すレール</param>
+	/// <param name="sideDirXZ">乗り換えたい方向(XZ平面の正規化ベクトル)</param>
+	/// <returns>乗り換えられたときtrue</returns>
+	bool TrySwitchToSideRail(RailEditor* railEditor,const Vector3& sideDirXZ);
+
 	// 描画用の3Dオブジェクト(三人称視点用の人型モデル)
 	std::unique_ptr<Obj3D> obj_;
 
@@ -154,4 +162,10 @@ private:
 	static constexpr float kMoveSpeed = 8.0f;
 	// レールの終端の進行度
 	static constexpr float kRailEndT = 1.0f;
+	// 並走レールへの乗り換えができる水平方向(XZ平面)の最大距離
+	static constexpr float kSideRailSwitchMaxDistance = 6.0f;
+	// 並走レールへの乗り換えができる高さの差の最大値
+	static constexpr float kSideRailSwitchMaxHeightDiff = 3.0f;
+	// 並走レールが押した方向の真横にあるとみなす、方向ベクトルとの内積の下限(1に近いほど真横に限定される)
+	static constexpr float kSideRailDirectionThreshold = 0.7f;
 };

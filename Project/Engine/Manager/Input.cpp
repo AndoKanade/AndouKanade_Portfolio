@@ -75,6 +75,9 @@ void Input::Update(){
 		memset(key_,0,sizeof(key_));
 	}
 
+	// 前回のマウスの状態を保存 (ボタンのトリガー判定に使う)
+	preMouseState_ = mouseState_;
+
 	// マウス情報の取得を開始
 	mouse_->Acquire();
 
@@ -117,4 +120,26 @@ float Input::GetMouseDeltaX() const{
 // マウスのY軸移動量を取得 (1フレーム分の相対移動量)
 float Input::GetMouseDeltaY() const{
 	return static_cast<float>(mouseState_.lY);
+}
+
+// マウスのボタンが押されているか (長押し判定)
+bool Input::PushMouseButton(int buttonNumber) const{
+	// 範囲外のボタン番号は押されていない扱いにする
+	if(buttonNumber < 0 || buttonNumber >= static_cast<int>(sizeof(mouseState_.rgbButtons))){
+		return false;
+	}
+	// 最上位ビットが立っていれば押されている
+	return (mouseState_.rgbButtons[buttonNumber] & kPressedBit) != 0;
+}
+
+// マウスのボタンがこのフレームで押されたか (トリガー判定)
+bool Input::TriggerMouseButton(int buttonNumber) const{
+	// 範囲外のボタン番号は押されていない扱いにする
+	if(buttonNumber < 0 || buttonNumber >= static_cast<int>(sizeof(mouseState_.rgbButtons))){
+		return false;
+	}
+	// 前フレームで押されておらず、現在押されている場合
+	const bool isPressed = (mouseState_.rgbButtons[buttonNumber] & kPressedBit) != 0;
+	const bool wasPressed = (preMouseState_.rgbButtons[buttonNumber] & kPressedBit) != 0;
+	return isPressed && !wasPressed;
 }

@@ -54,11 +54,18 @@ void StartSequence::Initialize(Obj3dCommon* object3dCommon,SpriteCommon* spriteC
 }
 
 // タイトルから始める
-void StartSequence::Start(){
-	phase_ = Phase::Title;
+void StartSequence::Start(bool skipTitle){
 	playerHopTimer_ = 0.0f;
 	cameraDirector_.Reset();
 	countdown_.Stop();
+
+	// タイトル演出を飛ばす場合は、BGMも鳴らさずにそのままプレイ中にする
+	if(skipTitle){
+		phase_ = Phase::Playing;
+		return;
+	}
+
+	phase_ = Phase::Title;
 	if(titleLogo_){
 		titleLogo_->Reset();
 	}
