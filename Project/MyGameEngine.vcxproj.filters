@@ -118,6 +118,18 @@
     <Filter Include="ソース ファイル\Game\Title">
       <UniqueIdentifier>{a4d71f28-6c3b-4e95-8b0d-1f7e2c9a5b43}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Game\Camera">
+      <UniqueIdentifier>{3e6c1a94-7b25-4d0f-a8e2-5c9b1f7d4a60}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Game\Camera">
+      <UniqueIdentifier>{8d2f5b07-1e4a-4c93-b6d8-0a7e3c5f9b21}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Game\UI">
+      <UniqueIdentifier>{c7a90e13-5f6b-4b28-9d41-e2b6a8f0c374}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Game\UI">
+      <UniqueIdentifier>{1b8e4d62-a03c-47f5-8c9e-6f2d0b5a7e18}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Base\DXCommon.cpp">
@@ -242,6 +254,30 @@
     </ClCompile>
     <ClCompile Include="Game\objects\Enemy.cpp">
       <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\objects\Ground.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\objects\Player.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\objects\PlayerBulletManager.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\objects\TargetManager.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\objects\EnemyManager.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Camera\RailCamera.cpp">
+      <Filter>ソース ファイル\Game\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Camera\DebugTopCamera.cpp">
+      <Filter>ソース ファイル\Game\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\UI\Reticle.cpp">
+      <Filter>ソース ファイル\Game\UI</Filter>
     </ClCompile>
     <ClCompile Include="Game\Title\LogoHidePattern.cpp">
       <Filter>ソース ファイル\Game\Title</Filter>
@@ -400,6 +436,30 @@
     </ClInclude>
     <ClInclude Include="Game\objects\Enemy.h">
       <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\Ground.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\Player.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\PlayerBulletManager.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\TargetManager.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\EnemyManager.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Camera\RailCamera.h">
+      <Filter>ヘッダー ファイル\Game\Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Camera\DebugTopCamera.h">
+      <Filter>ヘッダー ファイル\Game\Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\UI\Reticle.h">
+      <Filter>ヘッダー ファイル\Game\UI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Base\Easing.h">
       <Filter>ヘッダー ファイル\Engine\Base</Filter>

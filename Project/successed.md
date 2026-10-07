@@ -51,14 +51,13 @@
 - HUD（自機と敵の体力が ImGui のデバッグ表示にしか出ていない）。
 - "STAGE CLEAR!" / "GAME OVER" / カウントダウンが ImGui での代用のため、Release 構成ではカウントダウンが表示されない。
 - PRESS SPACE が仮テクスチャのまま。
-- 発射音・被弾音・BGM（SoundManager が GameScene から呼ばれていない）。
+- 発射音・被弾音・BGM（SoundManager が Game 側のどこからも呼ばれていない）。
 
 **敵の設定**
 - 攻撃の種類が全ての敵で共通のローテーション。
 - 体力以外のパラメータ（移動速度・検知範囲・発射間隔など）が `Enemy.h` の定数固定で、敵ごとの設定や実行中の調整に対応していない。
 
 **コードの品質**
-- GameScene.cpp（約900行）が大きいため、役割ごとのクラスへの分割が必要。
 - 自機の弾が発射のたびに `make_unique<Obj3D>` している。敵弾と同じく使い回しに揃えたい。
 - RailEditor の分岐設定 UI と `rail.json` の分岐先データが、実行時には使われないまま残っている。
 - ImGui のデバッグウィンドウ名が `"Rail Branch Debug"` のまま。
@@ -67,6 +66,7 @@
 - 落下リスタートでタイトルを挟まないこと、GameOver / Clear から戻るとタイトルから始まること。
 - アルファブレンドを有効にした後、敵・的・レール・地面の見た目が変わっていないか。
 - 当たり判定を境界球に変えた後の当たりやすさ（自機・敵とも判定が以前より小さくなった）。
+- GameScene をクラス分割した後も、タイトルからクリア・ゲームオーバーまで、ジャンプでの乗り換え、落下リスタート、Edit モードのパネルと俯瞰カメラが以前と同じように動くか。
 
 ---
 
@@ -510,6 +510,7 @@ RailEditor 側の分岐設定 UI（Inspector の Branch Target Rail/Point）と 
 ### 目標
 
 - 当たり判定を、手で決めた半径からモデルの形に合わせた判定へ変更する
+- GameScene.cpp を役割ごとのクラスへ分割する
 
 ### 1. モデルから境界球を求める
 
@@ -539,6 +540,33 @@ RailEditor 側の分岐設定 UI（Inspector の Branch Target Rail/Point）と 
 | 敵への命中 | 足元中心・半径 1.0 | 体の中心・半径 約0.4 ＋ 自機の弾 0.15 |
 | 的への命中 | 0.6 | 0.55（狙っているときは 0.75） |
 
+### 3. GameScene のクラス分割
+
+対象ファイル: `Game/scenes/GameScene.h/.cpp`、`Game/objects/Player.h/.cpp`（新規）、`Game/objects/PlayerBulletManager.h/.cpp`（新規）、`Game/objects/TargetManager.h/.cpp`（新規）、`Game/objects/EnemyManager.h/.cpp`（新規）、`Game/objects/Ground.h/.cpp`（新規）、`Game/Camera/RailCamera.h/.cpp`（新規）、`Game/Camera/DebugTopCamera.h/.cpp`（新規）、`Game/UI/Reticle.h/.cpp`（新規）、`MyGameEngine.vcxproj` / `.filters`
+
+GameScene.cpp が約1000行あり、道中作りでさらに処理が増えるため、役割ごとのクラスへ分けた。処理の内容と呼び出す順番は変えていない。GameScene.cpp は約490行になった。
+
+| クラス | 担当 |
+| --- | --- |
+| Player | レールの進行、ジャンプ・WASD 移動・着地判定、体力・無敵時間、モデルの表示 |
+| PlayerBulletManager | 弾の発射・移動・寿命、境界球との当たり判定 |
+| TargetManager | TargetEditor との同期、初回の自動配置、照準判定、弾との当たり判定、Hierarchy / Inspector の中身 |
+| EnemyManager | EnemyEditor との同期、初回の自動配置、更新、当たり判定、デバッグ表示 |
+| Ground | 地面タイルの生成・描画 |
+| RailCamera | プレイ用カメラの位置・照準・前方/右方向ベクトル |
+| DebugTopCamera | 俯瞰デバッグカメラ（F1 / ImGui での切り替え、WASDQE 移動） |
+| Reticle | 画面中央のレティクル |
+
+- GameScene に残したのは、Edit / Play の切り替え、開始演出とのつなぎ、クリア・ゲームオーバー判定、デバッグウィンドウ、各クラスを呼ぶ順番。
+- 調整項目のグループ名は `GameScene` のまま。グループは GameScene が作り、各項目は担当クラスが登録・取得する。保存済みの調整値はそのまま使われる。
+- 俯瞰カメラを制御点全体に合わせる処理が F1 と ImGui の 2 か所に重複していたため、`DebugTopCamera::FitToRail()` にまとめた。
+- 移したコードのうち数値を直接書いていた箇所（レティクルの大きさ・色、的の表示スケール、俯瞰カメラの高さなど）を、名前付きの定数にした。
+- `Game/Camera` と `Game/UI` のフィルターを追加した。
+
+### その他
+
+- `GameClassSpec.md` を新しいクラス構成に合わせて更新した（GameScene の節の書き直し、objects への 5 クラスの追加、Camera・UI の章の追加）。
+
 ### ビルド確認
 
-`MyGameEngine.sln` を Development / x64 でビルドし、成功することを確認した。実機での当たりやすさは未確認。
+`MyGameEngine.sln` を Development / Release（x64）でビルドし、成功することを確認した（Game 側のコードからの警告なし）。実機での当たりやすさと、クラス分割後の動作は未確認。
