@@ -28,7 +28,8 @@ public:
 	/// <param name="objCommon">3Dオブジェクト共通設定</param>
 	/// <param name="startPosition">並べる基準の位置(レール開始地点)</param>
 	/// <param name="forward">並べる基準の進行方向(レール開始地点での向き)</param>
-	void Initialize(Obj3dCommon* objCommon,const Vector3& startPosition,const Vector3& forward);
+	/// <param name="paramGroup">霧の濃さの調整項目を登録するGlobalVariablesのグループ名</param>
+	void Initialize(Obj3dCommon* objCommon,const Vector3& startPosition,const Vector3& forward,const std::string& paramGroup);
 
 	/// <summary>
 	/// 更新処理(カメラ切り替えへの追従・行列の更新・雲の起伏のうねり・霧のUVスクロール)
@@ -77,6 +78,9 @@ private:
 	// 霧の層(下の層から順に並べ、描画も下から行う)
 	std::vector<FogLayer> fogLayers_;
 
+	// 霧の濃さの調整項目を登録したGlobalVariablesのグループ名
+	std::string paramGroup_;
+
 	// 板モデル1枚の1辺の長さ(cloudSurface.obj・fogSurface.objは-1〜1の2x2なのでこの値になる)
 	static constexpr float kTilePlaneSize = 2.0f;
 	// 板モデルに掛ける表示スケール(1タイルの1辺はkTilePlaneSize倍された長さになる)
@@ -99,4 +103,10 @@ private:
 
 	// 霧は半透明で描くため、完全に透明なピクセルだけ捨てる
 	static constexpr float kFogAlphaCutoff = 0.0f;
+
+	// 霧の濃さの倍率の初期値(各層の不透明度にまとめて掛ける。保存済みJSONがあればそちらが優先される)
+	static constexpr float kDefaultFogDensity = 1.0f;
+	// 霧の不透明度として使える範囲(倍率を掛けた結果がこの範囲を超えないように制限する)
+	static constexpr float kFogAlphaMin = 0.0f;
+	static constexpr float kFogAlphaMax = 1.0f;
 };

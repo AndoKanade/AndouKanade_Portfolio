@@ -84,7 +84,7 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 
 	// 簡易的な地面の生成(レール開始地点を基準に並べるため、レールエディターの初期化後に行う)
 	ground_ = std::make_unique<Ground>();
-	ground_->Initialize(object3dCommon_,railEditor_->GetPositionOnRail(0.0f),railEditor_->GetForwardOnRail(0.0f));
+	ground_->Initialize(object3dCommon_,railEditor_->GetPositionOnRail(0.0f),railEditor_->GetForwardOnRail(0.0f),kGameSceneGroup);
 
 	// 調整項目(GlobalVariables)のグループを作成する
 	// 各クラスがこのグループに自分の調整項目を登録する
@@ -134,7 +134,13 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 }
 
 // シーンの終了処理
-void GameScene::Finalize(){}
+void GameScene::Finalize(){
+	// Play中にTABでカーソルを隠したままシーンが切り替わると、次のシーンでもカーソルが消えたままになるため表示に戻す
+	if(!isCursorVisible_){
+		isCursorVisible_ = true;
+		::ShowCursor(TRUE);
+	}
+}
 
 // ゲームを初期状態(レール先頭)から始め直す
 // Playに入った瞬間と、レールから落ちたときのリスタートで共通して使う
@@ -164,10 +170,8 @@ void GameScene::Update(){
 		skybox_->Update(*CameraManager::GetInstance()->GetActiveCamera());
 	}
 
-	// パーティクルの更新(ビルボード行列・寿命の進行など)
-	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
-		ParticleManager::GetInstance()->Update(activeCamera);
-	}
+	// パーティクルの更新(発生タイミング・経過時間の進行。カメラ行列は描画時に反映する)
+	ParticleManager::GetInstance()->Update();
 
 	// 地面タイルの更新(霧のUVスクロールも行う)
 	ground_->Update(kDeltaTime);
@@ -277,8 +281,10 @@ void GameScene::UpdateGameplay(){
 
 	// クリア判定
 	// アクティブなレールが最後まで到達したらクリアとする(オフレール中は判定しない)
+	// 切り替えは次フレームに行われるため、以降の判定(ゲームオーバー・落下リスタートなど)で上書きされないようここで抜ける
 	if(isGameplayActive && player_->HasReachedGoal()){
 		sceneManager_->ChangeScene("CLEAR");
+		return;
 	}
 
 #ifdef USE_IMGUI
@@ -328,8 +334,10 @@ void GameScene::UpdateGameplay(){
 
 	// ゲームオーバー判定
 	// 体力が0になったらゲームオーバー画面へ遷移する
+	// クリア判定と同じく、以降の落下リスタートなどの処理を行わないようここで抜ける
 	if(isGameplayActive && player_->IsDead()){
 		sceneManager_->ChangeScene("GAMEOVER");
+		return;
 	}
 
 	// プレイヤーの自立(ジャンプ+WASD移動)
@@ -485,7 +493,7 @@ void GameScene::Draw(){
 
 	// 撃破演出パーティクルの描画(3Dオブジェクトの後、2Dレティクルの前に描画する)
 	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
-		ParticleManager::GetInstance()->Draw(activeCamera->GetViewProjectionMatrix());
+		ParticleManager::GetInstance()->Draw(activeCamera);
 	}
 
 	// 画面中央固定のレティクルを描画

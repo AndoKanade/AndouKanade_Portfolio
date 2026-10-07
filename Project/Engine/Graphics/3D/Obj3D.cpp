@@ -62,18 +62,12 @@ void Obj3D::Update(){
         worldMatrix = Multiply(localMatrix,parentPtr->GetWorldMatrix());
     }
 
-    // 3. カメラ合成 (WVP)
-    Matrix4x4 worldViewProjectionMatrix = worldMatrix;
-    if(Camera* cameraPtr = camera?camera:object3dCommon->GetDefaultCamera()){
-        worldViewProjectionMatrix = Multiply(worldMatrix,cameraPtr->GetViewProjectionMatrix());
-    }
-
-    // 4. GPUバッファ更新
-    transformationMatrixData->WVP = worldViewProjectionMatrix;
+    // 3. GPUバッファ更新
+    // WVPはカメラ行列の更新(シーン更新の後)が終わってから合成するため、Draw()で求める
     transformationMatrixData->World = worldMatrix;
     transformationMatrixData->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
 
-    // 5. アニメーションとスキニング更新
+    // 4. アニメーションとスキニング更新
     if(isSkinning_){
         animationTime_ = std::fmod(animationTime_ + (1.0f / 60.0f),animation_.duration);
         skeleton_.ApplyAnimation(animation_,animationTime_);
@@ -98,6 +92,14 @@ void Obj3D::Draw(){
     auto* lightRes = ModelManager::GetInstance()->GetModelCommon()->GetLightResource();
     Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera();
     uint32_t skyboxSRVIndex = TextureManager::GetInstance()->GetSrvIndex("resource/Skybox/rostock_laage_airport_4k.dds");
+
+    // カメラ合成 (WVP)
+    // Update()の時点ではカメラ行列が前フレームのままのため、カメラ更新後の描画時に合成して1フレームの遅れを防ぐ
+    Matrix4x4 worldViewProjectionMatrix = transformationMatrixData->World;
+    if(Camera* cameraPtr = camera?camera:object3dCommon->GetDefaultCamera()){
+        worldViewProjectionMatrix = Multiply(transformationMatrixData->World,cameraPtr->GetViewProjectionMatrix());
+    }
+    transformationMatrixData->WVP = worldViewProjectionMatrix;
 
     // パイプライン切り替え
     if(isSkinning_){
