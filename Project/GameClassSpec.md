@@ -1,6 +1,6 @@
 # Game フォルダ クラス仕様書
 
-最終更新: 2026-09-30
+最終更新: 2026-10-07
 
 `Game/` 以下の各クラスについて、「何ができるか」「外から何を呼べるか」「中でどう動いているか」をまとめる。
 エンジン側（`Engine/`）のクラスは対象外。
@@ -164,9 +164,10 @@ Game/
 | 着地 | 落下中に「水平距離が `kOnRailHorizontalThreshold_`（1.0）以内」かつ「前フレームより下へレールの高さを跨いだ」ら、そのレールに乗り移る |
 | 落下リスタート | どのレールにも乗れずに地面の高さ（`kGroundHeight_` = -3.0）まで落ちたら `ResetPlayState()` を呼ぶ。開始演出は挟まない |
 | 射撃 | SPACE で、カメラの位置から前方へ弾を発射する。速度 40、重力 9.8、寿命 2 秒 |
-| 的 | 弾との距離が `kBulletHitRadius_`（0.6）以下で撃破し、火花パーティクルを出す。レティクルが的を捉えていると、的が大きくなり中心ドットが赤くなる |
+| 的 | 弾と的の境界球が重なったら撃破し、火花パーティクルを出す。レティクルが的を捉えていると、的が大きくなり中心ドットが赤くなる |
 | 敵へのダメージ | 弾 1 発につき `kBulletDamageToEnemy_`（1）減る |
 | プレイヤーの体力 | 最大 3。敵弾が当たると 1 減り、1 秒間は無敵になる。0 になると GAMEOVER |
+| 当たり判定 | すべてモデルの頂点から求めた境界球（`Model::BoundingSphere`）同士の重なりで判定する。プレイヤー・敵本体はワールド行列で変換した球（`Obj3D::GetWorldBoundingSphere()`）、弾・的は現在座標と表示スケールから求めた球を使う |
 
 #### 主な関数
 
@@ -410,9 +411,10 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | `Draw()` | 本体（生存中のみ）と、発射中の弾を描画する |
 | `Reset()` | 位置・向き・体力・弾・攻撃の順番を初期状態に戻す |
 | `TakeDamage(int)` | 体力を減らす。この攻撃で撃破されたら true を返す |
-| `CheckHitToPlayer(playerPosition, radius)` | 敵弾とプレイヤーの当たり判定。当たった弾を消し、その数を返す |
+| `CheckHitToPlayer(playerSphere)` | 敵弾とプレイヤーの当たり判定。弾の境界球とプレイヤーの境界球が重なったら弾を消し、その数を返す |
 | `SetBasePosition` / `SetPatrolDirection` / `SetMaxHp` | 配置エディターの編集を反映する |
-| `GetPosition` / `IsAlive` / `GetHp` / `GetMaxHp` / `GetHitRadius` | 状態の取得（当たり半径は 1.0） |
+| `GetPosition` / `IsAlive` / `GetHp` / `GetMaxHp` | 状態の取得 |
+| `GetHitSphere()` | 本体のモデルから求めたワールド座標系の境界球を取得する（当たり判定用） |
 | `IsDetectingPlayer` / `GetActiveBulletCount` | デバッグ表示用の取得 |
 
 ---

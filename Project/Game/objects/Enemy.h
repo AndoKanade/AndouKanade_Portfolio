@@ -1,5 +1,6 @@
 #pragma once
 #include "MyMath.h"
+#include "Model.h"
 #include <memory>
 #include <vector>
 
@@ -64,10 +65,9 @@ public:
 	/// <summary>
 	/// 発射済みの弾とプレイヤーの当たり判定を行い、命中した弾を消滅させる
 	/// </summary>
-	/// <param name="playerPosition">プレイヤーのワールド座標</param>
-	/// <param name="playerHitRadius">プレイヤーに命中したとみなす、プレイヤー中心からの距離</param>
+	/// <param name="playerSphere">プレイヤーのモデルから求めたワールド座標系の境界球</param>
 	/// <returns>このフレームでプレイヤーに命中した弾の数</returns>
-	int CheckHitToPlayer(const Vector3& playerPosition,float playerHitRadius);
+	int CheckHitToPlayer(const Model::BoundingSphere& playerSphere);
 
 	// 発射済みで生存している弾の数を取得(デバッグ表示用)
 	int GetActiveBulletCount() const;
@@ -78,8 +78,8 @@ public:
 	bool IsAlive() const{ return isAlive_; }
 	// プレイヤーを検知しているかどうかを取得(デバッグ表示用)
 	bool IsDetectingPlayer() const{ return isDetectingPlayer_; }
-	// 弾が命中したとみなす半径を取得
-	float GetHitRadius() const{ return kHitRadius; }
+	// 当たり判定用に、モデルから求めたワールド座標系の境界球を取得
+	Model::BoundingSphere GetHitSphere() const;
 
 private:
 	// 検知中はこの種類を順番に切り替えながら撃つことで、攻撃パターンに変化をつける
@@ -114,6 +114,9 @@ private:
 
 	std::unique_ptr<Obj3D> obj_; // 描画用の3Dオブジェクト
 
+	// 敵弾のモデル(当たり判定で弾の境界球を求めるのに使う)
+	Model* bulletModel_ = nullptr;
+
 	// 敵弾の管理用
 	std::vector<Bullet> bullets_;  // 使い回す弾の実体(サイズはkMaxBulletCountで固定)
 	float shotTimer_ = 0.0f;       // 次の発射までの残り時間(秒)
@@ -142,8 +145,6 @@ private:
 	static constexpr float kPatrolRange = 5.0f;
 	// プレイヤーを検知する距離(この距離以内ならプレイヤーの方を向く)
 	static constexpr float kDetectionRange = 25.0f;
-	// 弾が命中したとみなす、敵の中心からの距離
-	static constexpr float kHitRadius = 1.0f;
 	// 表示スケール
 	static constexpr float kScale = 0.4f;
 

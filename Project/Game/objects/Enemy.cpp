@@ -46,6 +46,7 @@ void Enemy::Initialize(Obj3dCommon* objCommon,const Vector3& basePosition,const 
 	// 敵弾の生成
 	// 発射のたびに生成すると無駄な処理が毎フレーム発生するため、ここで最大数ぶんまとめて作り、以降は使い回す
 	ModelManager::GetInstance()->LoadModel(kEnemyBulletModelPath);
+	bulletModel_ = ModelManager::GetInstance()->FindModel(kEnemyBulletModelPath);
 	bullets_.resize(kMaxBulletCount);
 	for(auto& bullet : bullets_){
 		bullet.obj = std::make_unique<Obj3D>();
@@ -346,22 +347,40 @@ void Enemy::FireBullet(const Vector3& spawnPosition,const Vector3& direction,flo
 }
 
 // 発射済みの弾とプレイヤーの当たり判定
-int Enemy::CheckHitToPlayer(const Vector3& playerPosition,float playerHitRadius){
+int Enemy::CheckHitToPlayer(const Model::BoundingSphere& playerSphere){
 	int hitCount = 0;
+
+	// 弾のモデルが無いときは境界球を求められないため判定しない
+	if(!bulletModel_){
+		return hitCount;
+	}
 
 	for(auto& bullet : bullets_){
 		if(!bullet.isAlive){
 			continue;
 		}
 
-		// 弾とプレイヤーの中心間距離が許容半径以下なら命中とみなし、その弾を未使用に戻す
-		if(Length(playerPosition - bullet.position) <= playerHitRadius){
+		// 発射したばかりの弾は描画用オブジェクトの行列がまだ更新されていないため、
+		// 弾の現在座標と表示スケールから境界球を求める(弾は球なので回転は考慮しなくてよい)
+		Model::BoundingSphere bulletSphere = bulletModel_->GetBoundingSphere(bullet.position,kBulletScale);
+
+		// 弾とプレイヤーの境界球が重なっていれば命中とみなし、その弾を未使用に戻す
+		if(bulletSphere.IsHit(playerSphere)){
 			bullet.isAlive = false;
 			++hitCount;
 		}
 	}
 
 	return hitCount;
+}
+
+// 当たり判定用に、モデルから求めたワールド座標系の境界球を取得
+// 本体の行列はUpdate()の最後で更新されるため、Update()後に呼べば現在の位置・向き・大きさが反映される
+Model::BoundingSphere Enemy::GetHitSphere() const{
+	if(!obj_){
+		return {position_, 0.0f};
+	}
+	return obj_->GetWorldBoundingSphere();
 }
 
 // 発射済みで生存している弾の数を取得(デバッグ表示用)

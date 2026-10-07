@@ -10,6 +10,7 @@
 #include "MyMath.h"
 #include "ModelManager.h"
 #include <cassert>
+#include <algorithm>
 
 //=============================================================================
 // 初期化
@@ -136,6 +137,33 @@ void Obj3D::SetModel(const std::string& filePath){
 
 void Obj3D::SetParent(const std::weak_ptr<Obj3D>& parent){
     this->parent_ = parent;
+}
+
+Model::BoundingSphere Obj3D::GetWorldBoundingSphere() const{
+    // モデルが無いときは、現在位置を中心とした大きさ0の球を返す
+    if(!model){
+        return {transform.translate, 0.0f};
+    }
+
+    const Model::BoundingSphere& localSphere = model->GetBoundingSphere();
+    const Matrix4x4& world = transformationMatrixData->World;
+
+    // 中心座標をワールド行列で変換する(行ベクトル × 行列の順で掛ける)
+    const Vector3& c = localSphere.center;
+    Vector3 worldCenter = {
+        c.x * world.m[0][0] + c.y * world.m[1][0] + c.z * world.m[2][0] + world.m[3][0],
+        c.x * world.m[0][1] + c.y * world.m[1][1] + c.z * world.m[2][1] + world.m[3][1],
+        c.x * world.m[0][2] + c.y * world.m[1][2] + c.z * world.m[2][2] + world.m[3][2]
+    };
+
+    // 各軸の拡大率はワールド行列の各行の長さで求まる
+    // 軸ごとに拡大率が違っても球からはみ出さないよう、最も大きい拡大率を半径に掛ける
+    float scaleX = Length({world.m[0][0], world.m[0][1], world.m[0][2]});
+    float scaleY = Length({world.m[1][0], world.m[1][1], world.m[1][2]});
+    float scaleZ = Length({world.m[2][0], world.m[2][1], world.m[2][2]});
+    float maxScale = (std::max)({scaleX, scaleY, scaleZ});
+
+    return {worldCenter, localSphere.radius * maxScale};
 }
 
 void Obj3D::CreateTransformationMatrixData(){

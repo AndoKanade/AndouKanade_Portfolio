@@ -20,6 +20,7 @@ class TargetEditor;
 class Enemy;
 class EnemyEditor;
 class StartSequence;
+class Model;
 
 class GameScene : public BaseScene{
 public:
@@ -111,8 +112,6 @@ private:
 
 	// 体力の最大値(Play開始時にこの値へ戻す)
 	const int kPlayerMaxHp_ = 3;
-	// 敵弾が命中したとみなす、プレイヤー中心からの距離
-	const float kPlayerHitRadius_ = 1.0f;
 	// 被弾してから次に被弾できるようになるまでの無敵時間(秒)
 	const float kPlayerInvincibleTime_ = 1.0f;
 
@@ -176,7 +175,10 @@ private:
 	};
 	std::vector<Target> targets_;
 
-	// 弾(プロジェクタイル)。プレイヤーが発射し、的との距離判定でヒットを取る
+	// 的と弾に使う球モデル(当たり判定で境界球を求めるのに使う)
+	Model* sphereModel_ = nullptr;
+
+	// 弾(プロジェクタイル)。プレイヤーが発射し、的との境界球の重なりでヒットを取る
 	struct Bullet{
 		std::unique_ptr<Obj3D> obj;
 		Vector3 position;
@@ -190,8 +192,6 @@ private:
 	const float kBulletSpeed_ = 40.0f;
 	// 弾の表示スケール
 	const float kBulletScale_ = 0.15f;
-	// 弾が的に命中したとみなす距離(弾と的の中心間距離がこの値以下でヒット)
-	const float kBulletHitRadius_ = 0.6f;
 	// 弾が的に当たらなかった場合に消滅するまでの生存時間(秒)
 	const float kBulletLifeTime_ = 2.0f;
 	// 弾に適用する重力加速度(1秒あたりの下方向への速度変化量)

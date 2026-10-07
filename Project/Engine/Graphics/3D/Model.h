@@ -59,6 +59,20 @@ public:
 		float environmentCoefficient;
 	};
 
+	// 当たり判定用の境界球(モデルの全頂点を包む球)
+	struct BoundingSphere{
+		Vector3 center = {0.0f, 0.0f, 0.0f}; // 球の中心座標
+		float radius = 0.0f;                 // 球の半径
+
+		// 球同士が重なっているかどうか(中心間距離が半径の和以下なら重なっている)
+		// 平方根の計算を避けるため、距離の2乗と半径の和の2乗で比較する
+		bool IsHit(const BoundingSphere& other) const{
+			Vector3 diff = center - other.center;
+			float radiusSum = radius + other.radius;
+			return Dot(diff,diff) <= radiusSum * radiusSum;
+		}
+	};
+
 public:
 	// 初期化
 	void Initialize(ModelCommon* modelCommon,const std::string& directorypath,const std::string& filename);
@@ -79,7 +93,23 @@ public:
 
 	const ModelData& GetModelData() const{ return modelData; }
 
+	// モデル座標系での境界球を取得
+	const BoundingSphere& GetBoundingSphere() const{ return boundingSphere_; }
+
+	/// <summary>
+	/// 境界球を、指定した位置・拡大率でワールド座標系に置いたときの球を取得する
+	/// 回転は考慮しないため、球のモデルなど回転しても形が変わらないもの向け
+	/// </summary>
+	/// <param name="translate">ワールド座標</param>
+	/// <param name="scale">拡大率(全軸共通)</param>
+	BoundingSphere GetBoundingSphere(const Vector3& translate,float scale) const{
+		return {translate + boundingSphere_.center * scale, boundingSphere_.radius * scale};
+	}
+
 private:
+	// 全頂点を包む境界球を計算する(読み込み時に一度だけ行う)
+	void CalculateBoundingSphere();
+
 	// 頂点バッファの作成
 	void CreateVertexData();
 
@@ -98,6 +128,9 @@ private:
 
 	// CPU側のモデルデータ
 	ModelData modelData;
+
+	// モデル座標系での境界球(当たり判定用)
+	BoundingSphere boundingSphere_;
 
 	// 頂点バッファ関連リソース
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource;

@@ -123,6 +123,7 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 
 	// 球モデルの読み込みは的や弾でも使うためロードしておく
 	ModelManager::GetInstance()->LoadModel("Sphere/sphere.obj");
+	sphereModel_ = ModelManager::GetInstance()->FindModel("Sphere/sphere.obj");
 
 	// 的の配置エディターの生成と初期化(保存済みJSONがあればここで読み込まれる)
 	targetEditor_ = std::make_unique<TargetEditor>();
@@ -633,8 +634,11 @@ void GameScene::Update(){
 			// 命中した弾は無敵中でもここで消滅させ、すり抜けて後から当たらないようにする
 			// 複数の敵が同時に撃っていても、当たった弾はすべて消すためここでは合計だけ数える
 			int hitCount = 0;
+			// プレイヤーの境界球は全ての敵で共通なので、ループの外で一度だけ求める
+			// (プレイヤーの行列はこのフレームの配置処理でUpdate()済み)
+			Model::BoundingSphere playerSphere = player_->GetWorldBoundingSphere();
 			for(auto& enemy : enemies_){
-				hitCount += enemy->CheckHitToPlayer(playerPos,kPlayerHitRadius_);
+				hitCount += enemy->CheckHitToPlayer(playerSphere);
 			}
 
 			if(hitCount > 0 && playerInvincibleTimer_ <= 0.0f && playerHp_ > 0){
@@ -754,7 +758,7 @@ void GameScene::Update(){
 		// 的の当たり判定(画面中央固定のレティクル方式)
 		// レティクルは常に画面中央=カメラの前方ベクトル方向なので、
 		// 「カメラ→的」の方向とカメラ前方ベクトルのなす角が閾値以内なら狙えている(表示上のフィードバック用)
-		// 実際の命中判定は、発射した弾と的との距離が一定値以下になったかどうかで行う
+		// 実際の命中判定は、発射した弾と的のモデルから求めた境界球が重なったかどうかで行う
 		bool isAimingAtAnyTarget = false; // レティクル中心の色変えに使う
 		for(auto& target : targets_){
 			if(!target.isAlive) continue;
@@ -769,10 +773,17 @@ void GameScene::Update(){
 				isAimingAtAnyTarget = true;
 			}
 
-			// 生存している弾との距離判定(中心間距離がkBulletHitRadius_以下ならヒット)
+			// 狙えているときは少し大きくして視覚的にフィードバック
+			// 当たり判定も見た目の大きさに合わせるため、判定より先に求めておく
+			float scale = isAimed?0.6f:0.4f;
+
+			// 的と生存している弾の境界球が重なっていればヒット
+			// 的と弾は描画用オブジェクトの行列がこの後で更新されるため、現在座標と表示スケールから境界球を求める
+			Model::BoundingSphere targetSphere = sphereModel_->GetBoundingSphere(target.position,scale);
 			for(auto& bullet : bullets_){
 				if(!bullet.isAlive) continue;
-				if(Length(target.position - bullet.position) <= kBulletHitRadius_){
+				Model::BoundingSphere bulletSphere = sphereModel_->GetBoundingSphere(bullet.position,kBulletScale_);
+				if(targetSphere.IsHit(bulletSphere)){
 					target.isAlive = false;
 					bullet.isAlive = false;
 
@@ -784,8 +795,6 @@ void GameScene::Update(){
 
 			if(target.obj){
 				target.obj->SetTranslate(target.position);
-				// 狙えているときは少し大きくして視覚的にフィードバック
-				float scale = isAimed?0.6f:0.4f;
 				target.obj->SetScale({scale, scale, scale});
 				if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
 					target.obj->SetCamera(activeCamera);
@@ -795,14 +804,17 @@ void GameScene::Update(){
 		}
 
 		// 雑魚敵への被弾判定
-		// 的と同じく、生存している弾との中心間距離が敵の当たり半径以下ならヒットとする
+		// 的と同じく、敵と生存している弾の境界球が重なっていればヒットとする
 		// 敵には体力があるため、1発で撃破せず体力を減らし、0になったときだけ撃破される
 		for(auto& enemy : enemies_){
 			if(!enemy->IsAlive()) continue;
 
+			// 敵の境界球は弾ごとに変わらないため、弾のループの外で一度だけ求める
+			Model::BoundingSphere enemySphere = enemy->GetHitSphere();
 			for(auto& bullet : bullets_){
 				if(!bullet.isAlive) continue;
-				if(Length(enemy->GetPosition() - bullet.position) <= enemy->GetHitRadius()){
+				Model::BoundingSphere bulletSphere = sphereModel_->GetBoundingSphere(bullet.position,kBulletScale_);
+				if(enemySphere.IsHit(bulletSphere)){
 					// 被弾位置に火花パーティクルを発生させ、当たったことを見た目で分かるようにする
 					ParticleManager::GetInstance()->EmitSpark(enemy->GetPosition());
 					enemy->TakeDamage(kBulletDamageToEnemy_);
