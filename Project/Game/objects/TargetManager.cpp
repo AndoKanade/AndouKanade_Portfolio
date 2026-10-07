@@ -12,11 +12,12 @@
 #include "EditorWidgets.h"
 #include "Editor/RailEditor.h"
 #include "Editor/TargetEditor.h"
+#include <cmath>
 #include <cstdio>
 
 namespace{
-	// 的の表示に使用するモデル
-	const std::string kTargetModelPath = "Sphere/sphere.obj";
+	// 的の表示に使用するモデル(スプラトゥーンの標的のような、同心円の模様の円盤)
+	const std::string kTargetModelPath = "Bullseye/bullseye.obj";
 }
 
 TargetManager::TargetManager() = default;
@@ -133,6 +134,9 @@ bool TargetManager::Update(const Vector3& cameraPosition,const Vector3& cameraFo
 	// 調整項目から最新の値を取得(ImGui編集/ホットリロードが即反映される)
 	float aimHitAngle = GlobalVariables::GetInstance()->GetFloatValue(paramGroup_,"aimHitAngle");
 
+	// 前回のUpdate()で壊れた的の記録を消してから、今回の判定を行う
+	destroyedPositions_.clear();
+
 	bool isAimingAtAnyTarget = false; // レティクル中心の色変えに使う
 	for(auto& target : targets_){
 		if(!target.isAlive) continue;
@@ -158,9 +162,18 @@ bool TargetManager::Update(const Vector3& cameraPosition,const Vector3& cameraFo
 
 			// 的の撃破位置に火花パーティクルを発生させる
 			ParticleManager::GetInstance()->EmitSpark(target.position);
+
+			// 破片・しぶきの演出と連鎖数の加算は呼び出し側で行うため、壊れた位置を記録しておく
+			destroyedPositions_.push_back(target.position);
+			continue;
 		}
 
 		if(target.obj){
+			// 円盤の模様の面(Z軸)をカメラへ向ける(Y軸回転で左右、X軸回転で上下を合わせる)
+			Vector3 toCamera = Normalize(cameraPosition - target.position);
+			float horizontalLength = std::sqrt(toCamera.x * toCamera.x + toCamera.z * toCamera.z);
+			target.obj->SetRotate({std::atan2(-toCamera.y,horizontalLength), std::atan2(toCamera.x,toCamera.z), 0.0f});
+
 			target.obj->SetTranslate(target.position);
 			target.obj->SetScale({scale, scale, scale});
 			if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
@@ -171,6 +184,17 @@ bool TargetManager::Update(const Vector3& cameraPosition,const Vector3& cameraFo
 	}
 
 	return isAimingAtAnyTarget;
+}
+
+// 壊された的の数を数える
+int TargetManager::GetDestroyedCount() const{
+	int count = 0;
+	for(const auto& target : targets_){
+		if(!target.isAlive){
+			++count;
+		}
+	}
+	return count;
 }
 
 // すべての的を生存状態に戻す

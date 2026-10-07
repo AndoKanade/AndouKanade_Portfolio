@@ -407,6 +407,11 @@ if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVers
     <ClInclude Include="Game\Camera\RailCamera.h" />
     <ClInclude Include="Game\Camera\DebugTopCamera.h" />
     <ClInclude Include="Game\UI\Reticle.h" />
+    <ClInclude Include="Game\objects\InkEffectManager.h" />
+    <ClInclude Include="Game\objects\ComboCounter.h" />
+    <ClInclude Include="Game\objects\StageResult.h" />
+    <ClInclude Include="Game\UI\StageHUD.h" />
+    <ClInclude Include="Game\UI\SpeedLines.h" />
     <ClInclude Include="Engine\Base\Easing.h" />
     <ClInclude Include="Game\Title\LogoHidePattern.h" />
     <ClInclude Include="Game\Title\StartCountdown.h" />
@@ -471,6 +476,10 @@ if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVers
     <ClCompile Include="Game\Camera\RailCamera.cpp" />
     <ClCompile Include="Game\Camera\DebugTopCamera.cpp" />
     <ClCompile Include="Game\UI\Reticle.cpp" />
+    <ClCompile Include="Game\objects\InkEffectManager.cpp" />
+    <ClCompile Include="Game\objects\ComboCounter.cpp" />
+    <ClCompile Include="Game\UI\StageHUD.cpp" />
+    <ClCompile Include="Game\UI\SpeedLines.cpp" />
     <ClCompile Include="Game\Title\LogoHidePattern.cpp" />
     <ClCompile Include="Game\Title\StartCountdown.cpp" />
     <ClCompile Include="Game\Title\StartSequence.cpp" />

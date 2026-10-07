@@ -27,11 +27,16 @@
 #include "objects/PlayerBulletManager.h"
 #include "objects/TargetManager.h"
 #include "objects/EnemyManager.h"
+#include "objects/InkEffectManager.h"
+#include "objects/ComboCounter.h"
+#include "objects/StageResult.h"
 // カメラ
 #include "Camera/RailCamera.h"
 #include "Camera/DebugTopCamera.h"
 // UI
 #include "UI/Reticle.h"
+#include "UI/StageHUD.h"
+#include "UI/SpeedLines.h"
 
 namespace{
 	// スカイボックスのテクスチャパス
@@ -128,6 +133,21 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	reticle_ = std::make_unique<Reticle>();
 	reticle_->Initialize(spriteCommon_);
 
+	// インクのしぶき・的の破片・閃光の演出(使い回す3Dオブジェクトをここでまとめて生成する)
+	inkEffect_ = std::make_unique<InkEffectManager>();
+	inkEffect_->Initialize(object3dCommon_);
+
+	// 的を続けて壊したときの連鎖数
+	comboCounter_ = std::make_unique<ComboCounter>();
+
+	// プレイ中の画面表示(体力・壊した的の数・連鎖数)
+	stageHUD_ = std::make_unique<StageHUD>();
+	stageHUD_->Initialize(spriteCommon_);
+
+	// レールを進んでいる間に出すスピード線
+	speedLines_ = std::make_unique<SpeedLines>();
+	speedLines_->Initialize(spriteCommon_);
+
 	// 的の撃破時に発生させる火花パーティクルのグループを事前に生成しておく
 	TextureManager::GetInstance()->LoadTexture(kHitParticleTexture);
 	ParticleManager::GetInstance()->CreateParticleGroup(kHitParticleGroupName,kHitParticleTexture);
@@ -158,10 +178,16 @@ void GameScene::ResetPlayState(){
 	// 開始時に残っている弾もリセットする
 	bulletManager_->Clear();
 
-	// レールを0番へ戻す
+	// レールを0番へ戻し、インクで塗った区間も消す
 	if(railEditor_){
 		railEditor_->SwitchActiveRail(0);
+		railEditor_->ClearPaint();
 	}
+
+	// 出ている演出・連鎖数・スピード線も消す
+	inkEffect_->Reset();
+	comboCounter_->Reset();
+	speedLines_->Reset();
 
 	// 雑魚敵も撃破前の初期状態(体力満タン)から始める
 	enemyManager_->Reset();
@@ -278,6 +304,13 @@ void GameScene::UpdateGameplay(){
 	// オンレール/オフレールの状態に応じて、カメラ・プレイヤーの基準位置と基準向きを求める
 	player_->UpdateBasePose(railEditor_.get());
 
+	// レールを進んでいる間は、通った区間をインクの色で塗る
+	// 開始演出中・Edit中・終点に着いた後は進まないため、レールを進んでいる間に含めない
+	const bool isRidingRail = isGameplayActive && player_->IsOnRail() && !player_->HasReachedGoal();
+	if(isRidingRail){
+		railEditor_->PaintActiveRail(player_->GetRailT());
+	}
+
 	// カメラを基準位置の後ろ上に置き、照準の入力を反映する
 	railCamera_->Update(player_->GetBasePosition(),player_->GetBaseRotation(),isGameplayActive,input_,kDeltaTime);
 	const Vector3& cameraPos = railCamera_->GetPosition();
@@ -287,6 +320,10 @@ void GameScene::UpdateGameplay(){
 	// アクティブなレールが最後まで到達したらクリアとする(オフレール中は判定しない)
 	// 切り替えは次フレームに行われるため、以降の判定(ゲームオーバー・落下リスタートなど)で上書きされないようここで抜ける
 	if(isGameplayActive && player_->HasReachedGoal()){
+		// クリア画面で結果を表示できるよう、シーンが作り直される前に書き込んでおく
+		StageResult::destroyedTargetCount = targetManager_->GetDestroyedCount();
+		StageResult::totalTargetCount = targetManager_->GetTotalCount();
+		StageResult::maxCombo = comboCounter_->GetMaxCombo();
 		sceneManager_->ChangeScene("CLEAR");
 		return;
 	}
@@ -300,6 +337,11 @@ void GameScene::UpdateGameplay(){
 	// 座標は雑魚敵の検知判定・開始演出にも使う
 	player_->UpdateTransform(railCamera_->GetRotation(),startSequence_->GetPlayerHopHeight());
 	const Vector3& playerPos = player_->GetPosition();
+
+	// レールを進んでいる間は、足元から後ろへインクのしぶきを飛ばして勢いを見せる
+	if(isRidingRail){
+		inkEffect_->EmitRailTrail(playerPos,-railEditor_->GetForwardOnRail(player_->GetRailT()));
+	}
 
 	// 開始演出中は、プレイ用カメラをプレイヤー中心に回転させた位置・向きでカメラを上書きする
 	// (カメラの行列はシーン更新の後にまとめて更新されるため、ここで上書きしてもこのフレームの描画に反映される)
@@ -359,14 +401,27 @@ void GameScene::UpdateGameplay(){
 		// プレイヤーの手元から、レティクルの先の点へ向けて撃ち出す
 		Vector3 muzzlePos = player_->GetMuzzlePosition();
 		Vector3 aimPoint = cameraPos + cameraForward * kAimConvergeDistance;
-		bulletManager_->Fire(muzzlePos,Normalize(aimPoint - muzzlePos));
+		Vector3 shootDirection = Normalize(aimPoint - muzzlePos);
+		bulletManager_->Fire(muzzlePos,shootDirection);
+
+		// 手元から撃つ向きへインクを少し飛び散らせる
+		inkEffect_->EmitInkSplash(muzzlePos,shootDirection,kMuzzleSplashCount);
 	}
 
 	// 弾の移動更新と生存時間チェック
 	bulletManager_->Move(kDeltaTime);
 
+	// 連鎖が途切れるまでの時間を進める(Edit中・開始演出中は止めておく)
+	comboCounter_->Update(isGameplayActive?kDeltaTime:0.0f);
+
 	// 的の照準判定と弾との当たり判定
 	bool isAimingAtAnyTarget = targetManager_->Update(cameraPos,cameraForward,*bulletManager_);
+
+	// 壊れた的ごとに、破片・しぶき・閃光を出して連鎖数を増やす
+	for(const Vector3& destroyedPos : targetManager_->GetDestroyedPositions()){
+		inkEffect_->EmitTargetBreak(destroyedPos);
+		comboCounter_->AddHit();
+	}
 
 	// 雑魚敵への被弾判定
 	enemyManager_->CheckHitByBullets(*bulletManager_);
@@ -377,6 +432,15 @@ void GameScene::UpdateGameplay(){
 
 	// 狙えているときはレティクル中心を赤くする
 	reticle_->SetAiming(isAimingAtAnyTarget);
+
+	// 演出の更新(このフレームで出した分も含めて行列を求めるため、出す処理がすべて終わってから行う)
+	inkEffect_->Update(kDeltaTime);
+
+	// スピード線はレールを進んでいる間だけ出す
+	speedLines_->Update(isRidingRail,kDeltaTime);
+
+	// 画面表示の更新
+	stageHUD_->Update(player_->GetHp(),player_->GetMaxHp(),targetManager_->GetDestroyedCount(),targetManager_->GetTotalCount(),*comboCounter_);
 }
 
 #ifdef USE_IMGUI
@@ -495,6 +559,9 @@ void GameScene::Draw(){
 	// 発射中の弾を描画
 	bulletManager_->Draw();
 
+	// インクのしぶき・的の破片・閃光を描画
+	inkEffect_->Draw();
+
 	// 雲の上の霧を描画(半透明なので、奥にあるオブジェクトが透けて見えるよう3Dオブジェクトの最後に描く)
 	ground_->DrawFog();
 
@@ -506,8 +573,17 @@ void GameScene::Draw(){
 	// 画面中央固定のレティクルを描画
 	// タイトル中・カメラの回り込み中は照準を使わないため表示しない
 	bool isTitleShowing = startSequence_ && startSequence_->IsControllingCamera();
+
+	// スピード線はレティクル・画面表示より奥に見えるよう先に描く
+	speedLines_->Draw();
+
 	if(!isTitleShowing){
 		reticle_->Draw();
+	}
+
+	// 体力・壊した的の数・連鎖数はPlay中だけ表示する(タイトル中・カメラの回り込み中は出さない)
+	if(EditorContext::GetInstance()->IsPlayMode() && !isTitleShowing){
+		stageHUD_->Draw();
 	}
 
 	// 開始演出のタイトル表示(PRESS SPACE)を最前面に描画する

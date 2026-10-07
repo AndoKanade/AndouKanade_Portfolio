@@ -73,8 +73,11 @@ private:
 
 	// 弾の移動速度(1秒あたりの移動量)
 	static constexpr float kSpeed = 40.0f;
-	// 弾の表示スケール
+	// 弾の表示スケール(当たり判定の大きさにも使う)
 	static constexpr float kScale = 0.15f;
+	// 見た目を筋にするための、表示スケールに掛ける太さと長さの割合(当たり判定には使わない)
+	static constexpr float kStreakWidthRate = 0.6f;
+	static constexpr float kStreakLengthRate = 5.0f;
 	// 弾が的に当たらなかった場合に消滅するまでの生存時間(秒)
 	static constexpr float kLifeTime = 2.0f;
 	// 弾に適用する重力加速度(1秒あたりの下方向への速度変化量)

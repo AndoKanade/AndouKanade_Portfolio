@@ -8,6 +8,9 @@
 #include "TextureManager.h"
 #include "WinAPI.h"
 
+// プレイの結果(GameSceneがクリア直前に書き込む)
+#include "objects/StageResult.h"
+
 // ImGui (マクロ定義がある場合のみ)
 #ifdef USE_IMGUI
 #include "ImGuiManager.h"
@@ -69,6 +72,8 @@ void ClearScene::Update(){
 		ImGui::SetNextWindowPos({static_cast<float>(WinAPI::kClientWidth) * 0.5f - 100.0f, 80.0f});
 		ImGui::Begin("Clear",nullptr,ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 		ImGui::Text("STAGE CLEAR!");
+		ImGui::Text("Targets: %d / %d",StageResult::destroyedTargetCount,StageResult::totalTargetCount);
+		ImGui::Text("Max Combo: %d",StageResult::maxCombo);
 		ImGui::Text("Press SPACE to return to Title");
 		ImGui::End();
 	}

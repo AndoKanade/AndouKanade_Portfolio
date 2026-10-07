@@ -1,0 +1,6 @@
+newmtl Material
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+d 1.000000
+illum 1
+map_Kd white.png

@@ -5,14 +5,15 @@
 #include "CameraManager.h"
 #include "Camera.h"
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 namespace{
 	// 弾の表示に使用するモデル
 	const std::string kBulletModelPath = "Sphere/sphere.obj";
 
-	// 弾の色(敵弾が赤なので、区別できるよう青にする)
-	constexpr Vector4 kBulletColor = {0.2f, 0.4f, 1.0f, 1.0f};
+	// 弾の色(プレイヤーのインクの黄色。敵弾のオレンジより明るくして区別する)
+	constexpr Vector4 kBulletColor = {1.0f, 0.9f, 0.2f, 1.0f};
 }
 
 PlayerBulletManager::PlayerBulletManager() = default;
@@ -33,9 +34,11 @@ void PlayerBulletManager::Fire(const Vector3& position,const Vector3& direction)
 	bullet.obj->Initialize(objCommon_);
 	bullet.obj->SetModel(kBulletModelPath);
 
-	// 弾の色は生成時に一度設定するだけでよいため、ここで青にしておく
+	// 弾の色は生成時に一度設定するだけでよいため、ここでインクの色にしておく
+	// 周りの明るさに関係なく光る筋に見えるよう、ライティングは切る
 	if(Model::Material* material = bullet.obj->GetMaterial()){
 		material->color = kBulletColor;
+		material->enableLighting = 0;
 	}
 
 	bullet.position = position;
@@ -86,11 +89,17 @@ void PlayerBulletManager::RemoveDeadBullets(){
 }
 
 // 弾のトランスフォームを更新する(描画用)
+// 球を飛んでいる向きへ細長く伸ばして、インクの筋に見せる
 void PlayerBulletManager::UpdateTransforms(){
 	for(auto& bullet : bullets_){
 		if(bullet.obj){
+			// 球モデルのZ軸を速度の向きへ回す(Y軸回転で左右、X軸回転で上下を合わせる)
+			Vector3 direction = Normalize(bullet.velocity);
+			float horizontalLength = std::sqrt(direction.x * direction.x + direction.z * direction.z);
+			bullet.obj->SetRotate({std::atan2(-direction.y,horizontalLength), std::atan2(direction.x,direction.z), 0.0f});
+
 			bullet.obj->SetTranslate(bullet.position);
-			bullet.obj->SetScale({kScale, kScale, kScale});
+			bullet.obj->SetScale({kScale * kStreakWidthRate, kScale * kStreakWidthRate, kScale * kStreakLengthRate});
 			if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
 				bullet.obj->SetCamera(activeCamera);
 			}

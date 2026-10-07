@@ -13,8 +13,8 @@ namespace{
 	// プレイヤーの表示に使用するモデル
 	const std::string kPlayerModelPath = "human/walk.gltf";
 
-	// 体の色(敵と区別できるよう、弾と同系統の青にする)
-	constexpr Vector4 kPlayerColor = {0.3f, 0.5f, 1.0f, 1.0f};
+	// 体の色(参考にしたスプラトゥーンの映像に合わせ、自分のインクと同じ黄色にする)
+	constexpr Vector4 kPlayerColor = {1.0f, 0.85f, 0.15f, 1.0f};
 }
 
 Player::Player() = default;
@@ -30,7 +30,7 @@ void Player::Initialize(Obj3dCommon* objCommon,const std::string& paramGroup){
 	obj_->Initialize(objCommon);
 	obj_->SetModel(kPlayerModelPath);
 
-	// 体の色は生成時に一度設定するだけでよいため、ここで青にしておく
+	// 体の色は生成時に一度設定するだけでよいため、ここで黄色にしておく
 	if(Model::Material* material = obj_->GetMaterial()){
 		material->color = kPlayerColor;
 	}

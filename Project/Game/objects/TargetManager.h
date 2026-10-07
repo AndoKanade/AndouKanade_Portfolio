@@ -49,6 +49,13 @@ public:
 	// 生存している的を描画する
 	void Draw();
 
+	// 直前のUpdate()で壊れた的の座標の一覧を取得(撃破演出・連鎖数の加算に使う)
+	const std::vector<Vector3>& GetDestroyedPositions() const{ return destroyedPositions_; }
+	// 配置されている的の総数を取得
+	int GetTotalCount() const{ return static_cast<int>(targets_.size()); }
+	// 壊された的の数を取得
+	int GetDestroyedCount() const;
+
 #ifdef USE_IMGUI
 	// Hierarchyパネルの中身(的の一覧。クリックで選択できる)を表示する
 	void ShowHierarchy();
@@ -78,11 +85,14 @@ private:
 	// 的の配置エディター(的の座標はこちらが保持し、こちらは毎フレーム同期する)
 	std::unique_ptr<TargetEditor> editor_;
 
-	// 的に使う球モデル(当たり判定で境界球を求めるのに使う)
+	// 的に使う円盤モデル(当たり判定で境界球を求めるのに使う)
 	Model* model_ = nullptr;
 
 	// 的のリスト
 	std::vector<Target> targets_;
+
+	// 直前のUpdate()で壊れた的の座標(Update()の最初に空にする)
+	std::vector<Vector3> destroyedPositions_;
 
 	// 照準判定の許容角度の初期値(ラジアン、約5度。保存済みJSONがあればそちらが優先される)
 	static constexpr float kDefaultAimHitAngle = 0.09f;
