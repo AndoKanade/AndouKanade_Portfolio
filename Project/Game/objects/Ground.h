@@ -9,8 +9,8 @@ class Obj3D;
 class Obj3dCommon;
 
 /// <summary>
-/// 簡易的な地面
-/// 板モデルをレール開始地点を基準に格子状に並べて表現する。
+/// 雲海の地面
+/// 雲海のテクスチャを貼った板モデルをレール開始地点を基準に格子状に並べて表現する。
 /// 位置・向き・大きさは生成時に決め打ちするため、毎フレームは行列の更新だけ行う。
 /// </summary>
 class Ground{
@@ -39,7 +39,7 @@ private:
 	// 地面タイル
 	std::vector<std::unique_ptr<Obj3D>> tiles_;
 
-	// 板モデル1枚の1辺の長さ(plane.objは-1〜1の2x2なのでこの値になる)
+	// 板モデル1枚の1辺の長さ(cloudSea.objは-1〜1の2x2なのでこの値になる)
 	static constexpr float kTilePlaneSize = 2.0f;
 	// 板モデルに掛ける表示スケール(1タイルの1辺はkTilePlaneSize倍された長さになる)
 	static constexpr float kTileScale = 10.0f;
@@ -51,6 +51,6 @@ private:
 	static constexpr int kTileCountWidth = 5;
 	// 地面を敷くY座標(レールの起伏に関係なく一定の高さにする)
 	static constexpr float kGroundHeight = -3.0f;
-	// plane.objは+Z向きの板なので、X軸を-90度回して法線を上向き(+Y)にする
+	// cloudSea.objは+Z向きの板なので、X軸を-90度回して法線を上向き(+Y)にする
 	static constexpr float kRotateX = -3.14159265f * 0.5f;
 };

@@ -7,8 +7,11 @@
 #include <string>
 
 namespace{
-	// 地面に使用する板モデルのパス
-	const std::string kGroundModelPath = "Plane/plane.obj";
+	// 地面に使用する板モデルのパス(継ぎ目なく並べられる雲海のテクスチャを貼った板)
+	const std::string kGroundModelPath = "CloudSea/cloudSea.obj";
+
+	// 雲海はテクスチャの色そのままに見せたいため、ライティングを無効にする
+	constexpr int32_t kDisableLighting = 0;
 
 	// 進行方向に直角な横方向を求めるための上方向
 	constexpr Vector3 kWorldUp = {0.0f, 1.0f, 0.0f};
@@ -21,7 +24,7 @@ Ground::Ground() = default;
 Ground::~Ground() = default;
 
 // 地面タイルの生成
-// plane.objはXY平面の板なのでX軸を-90度回して水平にし、
+// cloudSea.objはXY平面の板なのでX軸を-90度回して水平にし、
 // レール開始地点を基準に進行方向(奥)と横方向へ格子状に並べることで簡易的な地面を表現する
 void Ground::Initialize(Obj3dCommon* objCommon,const Vector3& startPosition,const Vector3& forward){
 	if(!objCommon){
@@ -56,6 +59,10 @@ void Ground::Initialize(Obj3dCommon* objCommon,const Vector3& startPosition,cons
 			tile->SetRotate({kRotateX, 0.0f, 0.0f});
 			// Z方向は板の厚みに相当するため拡大しない
 			tile->SetScale({kTileScale, kTileScale, 1.0f});
+			// 光の当たり方で雲の明るさや色味が変わらないようにする
+			if(Model::Material* material = tile->GetMaterial()){
+				material->enableLighting = kDisableLighting;
+			}
 
 			tiles_.push_back(std::move(tile));
 		}
