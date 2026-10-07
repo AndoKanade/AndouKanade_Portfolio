@@ -141,8 +141,8 @@ private:
 	// 被弾後の無敵時間の残り(秒)。0より大きい間は敵弾が当たっても体力が減らない
 	float invincibleTimer_ = 0.0f;
 
-	// レール全体の進行速度の初期値(1秒あたりの進行量。保存済みJSONがあればそちらが優先される)
-	static constexpr float kDefaultRailSpeed = 0.05f;
+	// レール全体の進行速度の初期値(1秒あたりに進むワールド座標の距離。保存済みJSONがあればそちらが優先される)
+	static constexpr float kDefaultRailSpeed = 4.0f;
 	// モデルの表示スケール
 	static constexpr float kScale = 0.3f;
 	// カメラの前方へ置く距離(引きのカメラにするため、カメラから離して置く)
