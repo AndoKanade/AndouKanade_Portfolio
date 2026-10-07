@@ -61,6 +61,10 @@ void Framework::Update(){
 	// --- 入力情報の更新 ---
 	input_->Update();
 
+	// --- サウンドの更新 ---
+	// 出力デバイスが失われていたら、シーンが音を鳴らす前に作り直しておく
+	SoundManager::GetInstance()->Update();
+
 	// 変更箇所: ImGui無し(Release等)でもF2キーでPlay/Stopを切り替えられるようにする
 	if(input_->TriggerKey(DIK_F2)){
 		EditorContext::GetInstance()->TogglePlayMode();

@@ -1,4 +1,5 @@
 #include "SoundManager.h"
+#include "Logger.h"
 #include <cassert>
 #include <iostream>
 
@@ -24,26 +25,18 @@ void SoundManager::Initialize(){
 	result = MFStartup(MF_VERSION,MFSTARTUP_NOSOCKET);
 	assert(SUCCEEDED(result));
 
-	// 2. XAudio2エンジンの作成
-	result = XAudio2Create(&xAudio2_,0,XAUDIO2_DEFAULT_PROCESSOR);
-	assert(SUCCEEDED(result));
-
-	// 3. マスターボイスの作成
-	result = xAudio2_->CreateMasteringVoice(&masterVoice_);
-	assert(SUCCEEDED(result));
+	// 2. XAudio2エンジンとマスターボイスの作成
+	// 出力デバイスが使えなくてもゲームは止めず、音なしのまま続行する
+	// (音声データの読み込みはMedia Foundationで行うため、音なしの間もロードはできる)
+	CreateEngine();
 }
 
 // ==========================================================================
 // 終了処理
 // ==========================================================================
 void SoundManager::Finalize(){
-	// 再生中ボイスの破棄
-	for(auto& pair : activeVoices_){
-		if(pair.second){
-			pair.second->DestroyVoice();
-		}
-	}
-	activeVoices_.clear();
+	// 再生中ボイス・XAudio2の破棄
+	DestroyEngine();
 
 	// データの解放
 	for(auto& pair : soundDatas_){
@@ -51,11 +44,100 @@ void SoundManager::Finalize(){
 	}
 	soundDatas_.clear();
 
-	// XAudio2解放
-	xAudio2_.Reset();
-
 	// Media Foundation終了
 	MFShutdown();
+}
+
+// ==========================================================================
+// 更新 (出力デバイスが失われたときの作り直し)
+// ==========================================================================
+void SoundManager::Update(){
+	// デバイスが失われていなければ何もしない(フラグは確認と同時に下ろす)
+	if(!hasCriticalError_.exchange(false)){
+		return;
+	}
+
+	Logger::Log("SoundManager: 出力デバイスが失われたため、XAudio2を作り直します\n");
+
+	// 作り直すと再生中のボイスはすべて消えるため、BGMのようなループ再生の音だけ音量と一時停止状態を控えておく
+	// (1回だけ鳴らす効果音は、作り直している間に鳴り終わっていても困らないため再生し直さない)
+	struct LoopToRestore{
+		std::string filename;
+		float volume;
+		bool isPaused;
+	};
+	std::vector<LoopToRestore> loopsToRestore;
+	for(auto& [filename,active] : activeVoices_){
+		if(active.isLoop){
+			float volume = 0.0f;
+			active.voice->GetVolume(&volume);
+			loopsToRestore.push_back({filename, volume, active.isPaused});
+		}
+	}
+
+	// 一度すべて破棄してから、その時点の既定のデバイスで作り直す
+	DestroyEngine();
+	if(!CreateEngine()){
+		return;
+	}
+
+	// ループ再生していた音を最初から鳴らし直す(一時停止中だったものは一時停止のままにする)
+	for(const LoopToRestore& loop : loopsToRestore){
+		PlayAudio(loop.filename,loop.volume,true);
+		if(loop.isPaused){
+			PauseAudio(loop.filename);
+		}
+	}
+}
+
+// ==========================================================================
+// XAudio2のエンジンとマスターボイスの作成
+// ==========================================================================
+bool SoundManager::CreateEngine(){
+	HRESULT result = XAudio2Create(&xAudio2_,0,XAUDIO2_DEFAULT_PROCESSOR);
+	if(FAILED(result)){
+		Logger::Log("SoundManager: XAudio2の作成に失敗したため、音なしで続行します\n");
+		xAudio2_.Reset();
+		isAvailable_ = false;
+		return false;
+	}
+
+	// 出力デバイスが失われたときの通知を受け取る
+	xAudio2_->RegisterForCallbacks(&engineCallback_);
+
+	// 出力デバイスが無い・他のアプリに排他モードで使われている(AUDCLNT_E_DEVICE_IN_USE)ときはここで失敗する
+	result = xAudio2_->CreateMasteringVoice(&masterVoice_);
+	if(FAILED(result)){
+		Logger::Log("SoundManager: 出力デバイスを開けなかったため、音なしで続行します\n");
+		masterVoice_ = nullptr;
+		xAudio2_.Reset();
+		isAvailable_ = false;
+		return false;
+	}
+
+	isAvailable_ = true;
+	return true;
+}
+
+// ==========================================================================
+// 再生中のボイス・マスターボイス・XAudio2のエンジンの破棄
+// ==========================================================================
+void SoundManager::DestroyEngine(){
+	// ソースボイス → マスターボイス → エンジンの順に破棄する
+	for(auto& pair : activeVoices_){
+		if(pair.second.voice){
+			pair.second.voice->DestroyVoice();
+		}
+	}
+	activeVoices_.clear();
+
+	if(masterVoice_){
+		masterVoice_->DestroyVoice();
+		masterVoice_ = nullptr;
+	}
+
+	xAudio2_.Reset();
+	isAvailable_ = false;
 }
 
 // ==========================================================================
@@ -180,6 +262,11 @@ void SoundManager::PlayAudio(const std::string& filename,float volume,bool loop)
 	auto it = soundDatas_.find(filename);
 	assert(it != soundDatas_.end());
 
+	// 出力デバイスが使えない間は鳴らさない
+	if(!isAvailable_){
+		return;
+	}
+
 	// 二重再生防止：同じファイルが再生中なら停止して再利用
 	if(activeVoices_.find(filename) != activeVoices_.end()){
 		StopAudio(filename);
@@ -189,7 +276,10 @@ void SoundManager::PlayAudio(const std::string& filename,float volume,bool loop)
 	HRESULT result;
 	IXAudio2SourceVoice* pSourceVoice = nullptr;
 	result = xAudio2_->CreateSourceVoice(&pSourceVoice,&soundData.wfex);
-	assert(SUCCEEDED(result));
+	// デバイスが失われた直後(次のUpdate()で作り直す前)は失敗することがあるため、止めずに鳴らさないだけにする
+	if(FAILED(result)){
+		return;
+	}
 
 	pSourceVoice->SetVolume(volume);
 
@@ -205,7 +295,7 @@ void SoundManager::PlayAudio(const std::string& filename,float volume,bool loop)
 	result = pSourceVoice->Start();
 	assert(SUCCEEDED(result));
 
-	activeVoices_[filename] = pSourceVoice;
+	activeVoices_[filename] = {pSourceVoice, loop, false};
 }
 
 // ==========================================================================
@@ -214,9 +304,9 @@ void SoundManager::PlayAudio(const std::string& filename,float volume,bool loop)
 void SoundManager::StopAudio(const std::string& filename){
 	auto it = activeVoices_.find(filename);
 	if(it != activeVoices_.end()){
-		it->second->Stop();
-		it->second->FlushSourceBuffers();
-		it->second->DestroyVoice();
+		it->second.voice->Stop();
+		it->second.voice->FlushSourceBuffers();
+		it->second.voice->DestroyVoice();
 		activeVoices_.erase(it);
 	}
 }
@@ -227,7 +317,8 @@ void SoundManager::StopAudio(const std::string& filename){
 void SoundManager::PauseAudio(const std::string& filename){
 	auto it = activeVoices_.find(filename);
 	if(it != activeVoices_.end()){
-		it->second->Stop();
+		it->second.voice->Stop();
+		it->second.isPaused = true;
 	}
 }
 
@@ -237,7 +328,8 @@ void SoundManager::PauseAudio(const std::string& filename){
 void SoundManager::ResumeAudio(const std::string& filename){
 	auto it = activeVoices_.find(filename);
 	if(it != activeVoices_.end()){
-		it->second->Start();
+		it->second.voice->Start();
+		it->second.isPaused = false;
 	}
 }
 
@@ -254,6 +346,6 @@ bool SoundManager::IsPlaying(const std::string& filename){
 void SoundManager::SetVolume(const std::string& filename,float volume){
 	auto it = activeVoices_.find(filename);
 	if(it != activeVoices_.end()){
-		it->second->SetVolume(volume);
+		it->second.voice->SetVolume(volume);
 	}
 }

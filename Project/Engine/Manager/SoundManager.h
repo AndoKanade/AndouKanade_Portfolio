@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 #include <cstdint>
+#include <atomic>
 
 // --- DirectX / Windows関連 ---
 #include <wrl.h>
@@ -51,6 +52,12 @@ public: // --- システム初期化・終了 ---
 	/// 終了処理 (データの解放, エンジンの終了)
 	/// </summary>
 	void Finalize();
+
+	/// <summary>
+	/// 更新 (毎フレーム呼ぶ)
+	/// 再生中に出力デバイスが失われていたら、XAudio2を作り直して既定のデバイスへ切り替える
+	/// </summary>
+	void Update();
 
 public: // --- 音声ロード・再生制御 ---
 
@@ -101,10 +108,43 @@ private: // --- コンストラクタ・デストラクタ (外部からの生�
 	SoundManager(const SoundManager&) = delete;
 	SoundManager& operator=(const SoundManager&) = delete;
 
+private: // --- 内部で使う型 ---
+
+	/// <summary>
+	/// XAudio2のエンジンからの通知を受け取るクラス
+	/// 出力デバイスが失われたときなどに OnCriticalError が呼ばれる。
+	/// 通知はXAudio2の内部スレッドから届き、その中ではエンジンを作り直せないため、フラグを立てるだけにする。
+	/// </summary>
+	class EngineCallback : public IXAudio2EngineCallback{
+	public:
+		explicit EngineCallback(std::atomic<bool>* criticalErrorFlag) : criticalErrorFlag_(criticalErrorFlag){}
+
+		void STDMETHODCALLTYPE OnProcessingPassStart() override{}
+		void STDMETHODCALLTYPE OnProcessingPassEnd() override{}
+		// 出力デバイスが失われた(抜かれた・無効にされた)ときに呼ばれる
+		void STDMETHODCALLTYPE OnCriticalError(HRESULT) override{ *criticalErrorFlag_ = true; }
+
+	private:
+		std::atomic<bool>* criticalErrorFlag_;
+	};
+
+	// 再生中の音1つ分
+	struct ActiveVoice{
+		IXAudio2SourceVoice* voice = nullptr;
+		bool isLoop = false;   // 無限ループ再生か(デバイスを作り直したときに再生し直すのに使う)
+		bool isPaused = false; // 一時停止中か(作り直した後も一時停止のままにするのに使う)
+	};
+
 private: // --- 内部ヘルパー関数 ---
 
 	// 音声データのメモリ解放
 	void Unload(SoundData* soundData);
+
+	// XAudio2のエンジンとマスターボイスを作成する(失敗したら音なしの状態にしてfalseを返す)
+	bool CreateEngine();
+
+	// 再生中のボイス・マスターボイス・XAudio2のエンジンをすべて破棄する
+	void DestroyEngine();
 
 private: // --- メンバ変数 ---
 
@@ -113,9 +153,18 @@ private: // --- メンバ変数 ---
 	// マスターボイス (最終的な出力先)
 	IXAudio2MasteringVoice* masterVoice_ = nullptr;
 
+	// 音を出せる状態か
+	// 出力デバイスが無い・他のアプリに排他モードで使われているときはfalseになり、再生しても何もしない
+	bool isAvailable_ = false;
+
+	// 出力デバイスが失われたか(XAudio2の内部スレッドから書き込まれるためatomicにする)
+	std::atomic<bool> hasCriticalError_ = false;
+	// エンジンからの通知の受け取り先
+	EngineCallback engineCallback_{&hasCriticalError_};
+
 	// ロード済み音声データの管理コンテナ [キー:ファイル名]
 	std::map<std::string,SoundData> soundDatas_;
 
 	// 再生中のソースボイス管理コンテナ [キー:ファイル名]
-	std::map<std::string,IXAudio2SourceVoice*> activeVoices_;
+	std::map<std::string,ActiveVoice> activeVoices_;
 };
