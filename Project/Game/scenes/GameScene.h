@@ -104,6 +104,11 @@ private:
 	// マウスカーソルの表示状態(Playモード中にTABキーで切り替え。Editモードでは常に表示する)
 	bool isCursorVisible_ = true;
 
+	// Playに入ったときにタイトル演出を飛ばしてすぐプレイを始めるか(デバッグ用。ImGuiのチェックボックスで切り替える)
+	bool skipTitle_ = false;
+
 	// 1フレームの経過時間(エンジンが固定60fps前提(TimeManagerで60fps固定)なので、そのまま合わせる)
 	static constexpr float kDeltaTime = 1.0f / 60.0f;
+	// 射撃に使うマウスボタン(左ボタン)
+	static constexpr int kShootMouseButton = 0;
 };

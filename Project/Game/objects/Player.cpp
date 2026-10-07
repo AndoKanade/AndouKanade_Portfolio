@@ -141,8 +141,21 @@ bool Player::UpdateMovement(Input* input,RailEditor* railEditor,const Vector3& c
 	}
 
 	if(isOnRail_){
-		// ジャンプキー(LSHIFT)でレールを離れ、自由移動状態に切り替える
-		if(input->TriggerKey(DIK_LSHIFT)){
+		// ジャンプキー(SPACE)でレールを離れ、自由移動状態に切り替える
+		// タイトルのスタートもSPACEだが、押した瞬間はまだプレイ可能になっていないためジャンプしない
+		if(input->TriggerKey(DIK_SPACE)){
+			// A/Dを押しながらジャンプしたときは、その方向に並走しているレールがあれば直接乗り換える
+			// (撃ちながらジャンプで飛び移るのは難しいため、簡単に乗り換えられる操作として用意する)
+			Vector3 rightXZ = Normalize(Vector3{cameraRight.x, 0.0f, cameraRight.z});
+			Vector3 sideDir = {0.0f, 0.0f, 0.0f};
+			if(input->PushKey(DIK_D)) sideDir += rightXZ;
+			if(input->PushKey(DIK_A)) sideDir += -rightXZ;
+
+			// A/D同時押しで打ち消し合ったときは方向なしとして、通常のジャンプにする
+			if(Length(sideDir) > 0.0f && TrySwitchToSideRail(railEditor,sideDir)){
+				return false;
+			}
+
 			isOnRail_ = false;
 			freePosition_ = basePosition_;
 			freeVelocityY_ = kJumpSpeed;
@@ -199,6 +212,38 @@ bool Player::UpdateMovement(Input* input,RailEditor* railEditor,const Vector3& c
 	// レールから落ちたときのリスタート
 	// どのレールにも乗れないまま、地面の高さまで落ちたらリスタートが必要であることを呼び出し側へ伝える
 	return !isOnRail_ && freePosition_.y <= groundHeight;
+}
+
+// 押した方向のすぐ横を並走しているレールへ直接乗り換える
+// 今のレール以外で最も近いレールを探し、「近い」「押した方向の真横にある」「高さが近い」をすべて満たすときだけ乗り換える
+bool Player::TrySwitchToSideRail(RailEditor* railEditor,const Vector3& sideDirXZ){
+	RailEditor::NearestRailResult nearest = railEditor->FindNearestRail(basePosition_,railEditor->GetActiveRailIndex());
+	if(nearest.railIndex < 0){
+		return false;
+	}
+
+	// 水平方向(XZ平面)だけで見た、乗り換え先レールの最近傍点までの向きと距離
+	Vector3 toRailXZ = {nearest.position.x - basePosition_.x, 0.0f, nearest.position.z - basePosition_.z};
+	float horizontalDistance = Length(toRailXZ);
+	if(horizontalDistance > kSideRailSwitchMaxDistance){
+		return false;
+	}
+
+	// 押した方向の真横にあるか(前後にずれた位置のレールには乗り換えない)
+	if(Dot(Normalize(toRailXZ),sideDirXZ) < kSideRailDirectionThreshold){
+		return false;
+	}
+
+	// 高さが大きく違うレールには乗り換えない
+	if(std::abs(nearest.position.y - basePosition_.y) > kSideRailSwitchMaxHeightDiff){
+		return false;
+	}
+
+	// 乗り換え先レールの最近傍点からそのまま進行を続ける
+	railEditor->SwitchActiveRail(nearest.railIndex);
+	railT_ = nearest.t;
+	isRailFinished_ = false; // 乗り換え先レールを最後まで進めるようにする
+	return true;
 }
 
 // 描画処理

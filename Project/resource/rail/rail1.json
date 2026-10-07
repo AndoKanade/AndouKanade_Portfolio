@@ -1,8 +1,10 @@
 {
     "control_points": [
         {
+            "branchTargetPointIndex": -1,
+            "branchTargetRailIndex": -1,
             "position": [
-                25.9,
+                25.899999618530273,
                 2.0,
                 6.0
             ],
@@ -11,13 +13,13 @@
                 0.0,
                 0.0
             ],
-            "speed": 1.0,
-            "branchTargetRailIndex": -1,
-            "branchTargetPointIndex": -1
+            "speed": 1.0
         },
         {
+            "branchTargetPointIndex": -1,
+            "branchTargetRailIndex": -1,
             "position": [
-                30.9,
+                30.899999618530273,
                 3.0,
                 6.0
             ],
@@ -26,11 +28,11 @@
                 0.0,
                 0.0
             ],
-            "speed": 1.0,
-            "branchTargetRailIndex": -1,
-            "branchTargetPointIndex": -1
+            "speed": 1.0
         },
         {
+            "branchTargetPointIndex": -1,
+            "branchTargetRailIndex": -1,
             "position": [
                 37.0,
                 4.0,
@@ -41,11 +43,11 @@
                 0.0,
                 0.0
             ],
-            "speed": 1.0,
-            "branchTargetRailIndex": -1,
-            "branchTargetPointIndex": -1
+            "speed": 1.0
         },
         {
+            "branchTargetPointIndex": -1,
+            "branchTargetRailIndex": -1,
             "position": [
                 44.0,
                 5.0,
@@ -56,11 +58,11 @@
                 0.0,
                 0.0
             ],
-            "speed": 1.0,
-            "branchTargetRailIndex": -1,
-            "branchTargetPointIndex": -1
+            "speed": 1.0
         },
         {
+            "branchTargetPointIndex": -1,
+            "branchTargetRailIndex": -1,
             "position": [
                 50.0,
                 5.0,
@@ -71,9 +73,37 @@
                 0.0,
                 0.0
             ],
-            "speed": 1.0,
+            "speed": 1.0
+        },
+        {
+            "branchTargetPointIndex": -1,
             "branchTargetRailIndex": -1,
-            "branchTargetPointIndex": -1
+            "position": [
+                97.80000305175781,
+                8.300000190734863,
+                0.800000011920929
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "speed": 1.0
+        },
+        {
+            "branchTargetPointIndex": -1,
+            "branchTargetRailIndex": -1,
+            "position": [
+                145.39999389648438,
+                3.4000000953674316,
+                -6.5
+            ],
+            "rotation": [
+                1.7000000476837158,
+                0.0,
+                0.0
+            ],
+            "speed": 1.0
         }
     ],
     "name": "Rail 1"

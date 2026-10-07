@@ -160,7 +160,7 @@ Game/
 
 | 項目 | 内容 |
 | --- | --- |
-| 射撃 | SPACE で、カメラの位置から前方へ弾を発射する |
+| 射撃 | 左クリックで、カメラの位置から前方へ弾を発射する |
 | 落下リスタート | どのレールにも乗れずに地面の高さまで落ちたら `ResetPlayState()` を呼ぶ。開始演出は挟まない |
 | クリア | オンレール中にレールの終端に着いたら CLEAR へ移る |
 | ゲームオーバー | プレイヤーの体力が 0 になったら GAMEOVER へ移る |
@@ -255,7 +255,7 @@ GameScene が直接触るのは StartSequence だけで、残りのクラスは 
 | `IsControllingCamera()` | `Title` か `CameraTurn` なら true。GameScene はこれを見てカメラを上書きし、レティクルを隠す |
 | `CalculateCamera(pivot, gameplayPos, gameplayRot, outPos, outRot)` | 演出中のカメラ座標・向きを求める（TitleCameraDirector に任せる） |
 
-- スタートと射撃はどちらも SPACE だが、押した瞬間はまだ `Playing` ではないため弾は出ない。
+- スタートとジャンプはどちらも SPACE だが、押した瞬間はまだ `Playing` ではないためジャンプしない。
 
 ### TitleCameraDirector（`Title/TitleCameraDirector.h/.cpp`）
 
@@ -429,7 +429,7 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | 見た目 | `human/walk.gltf`（青色）、スケール 0.3 |
 | レール移動 | `railT_`（0〜1）を「制御点ごとの Speed × `railSpeed` × 経過時間」で進める。終端（1.0）で止まる |
 | 表示位置 | 基準位置（オンレール中はレール上の点、オフレール中は自由移動の座標）から、カメラの前方 6.0 の位置の少し下（0.1） |
-| ジャンプ | LSHIFT でレールを離れる。上向きの初速は 6.0、重力は 9.8。離れた瞬間の向きをオフレール中の基準向きとして固定する |
+| ジャンプ | SPACE でレールを離れる。上向きの初速は 6.0、重力は 9.8。離れた瞬間の向きをオフレール中の基準向きとして固定する |
 | オフレール移動 | WASD で、カメラ基準の水平方向へ 8.0 で動く |
 | 着地 | 落下中に「水平距離が `kOnRailHorizontalThreshold`（1.0）以内」かつ「前フレームより下へレールの高さを跨いだ」ら、そのレールに乗り移る |
 | 体力 | 最大 3。敵弾が当たると 1 減り、1 秒間は無敵になる。被弾位置に火花パーティクルを出す |
@@ -683,8 +683,8 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | キー | 内容 |
 | --- | --- |
 | マウス移動 | 照準 |
-| SPACE | 射撃 |
-| LSHIFT | ジャンプ（レールを離れる） |
+| 左クリック | 射撃 |
+| SPACE | ジャンプ（レールを離れる） |
 | WASD | オフレール中の水平移動 |
 | TAB | マウスカーソルの表示切り替え |
 

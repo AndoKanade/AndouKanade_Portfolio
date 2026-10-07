@@ -52,6 +52,20 @@ public:
 	// マウスのY軸移動量を取得 (1フレーム分の相対移動量)
 	float GetMouseDeltaY() const;
 
+	/// <summary>
+	/// マウスのボタンが押されているか (長押し判定)
+	/// </summary>
+	/// <param name="buttonNumber">0: 左ボタン, 1: 右ボタン, 2: 中ボタン</param>
+	/// <returns>押されていれば true</returns>
+	bool PushMouseButton(int buttonNumber) const;
+
+	/// <summary>
+	/// マウスのボタンがこのフレームで押されたか (トリガー判定)
+	/// </summary>
+	/// <param name="buttonNumber">0: 左ボタン, 1: 右ボタン, 2: 中ボタン</param>
+	/// <returns>押された瞬間なら true</returns>
+	bool TriggerMouseButton(int buttonNumber) const;
+
 private:
 	// 借りてくるインスタンス
 	WinAPI* winApi_ = nullptr;
@@ -67,4 +81,9 @@ private:
 
 	// マウスの現在フレームの状態 (相対移動量など)
 	DIMOUSESTATE mouseState_ = {};
+	// 1フレーム前のマウスの状態 (ボタンのトリガー判定に使う)
+	DIMOUSESTATE preMouseState_ = {};
+
+	// DirectInputでボタンが押されていることを表すビット
+	static constexpr BYTE kPressedBit = 0x80;
 };

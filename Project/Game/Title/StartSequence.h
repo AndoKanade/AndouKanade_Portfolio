@@ -33,8 +33,11 @@ public:
 	// 初期化(タイトルロゴのモデルとタイトル表示用のスプライト生成)
 	void Initialize(Obj3dCommon* object3dCommon,SpriteCommon* spriteCommon,Input* input);
 
-	// タイトルから始める(Playに入った瞬間に呼ぶ)
-	void Start();
+	/// <summary>
+	/// タイトルから始める(Playに入った瞬間に呼ぶ)
+	/// </summary>
+	/// <param name="skipTitle">trueならタイトル・カメラの回り込み・カウントダウンを飛ばして、すぐプレイ可能にする(デバッグ用)</param>
+	void Start(bool skipTitle = false);
 
 	// 演出を止めて何も行わない状態に戻す(Editモードに戻ったときに呼ぶ)
 	void Stop();
