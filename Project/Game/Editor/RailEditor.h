@@ -107,6 +107,8 @@ private:
 
 		// Play中にレールの本体として描く管(円柱をつないだもの。要素数はkTubeSegmentCountで固定する)
 		std::vector<std::unique_ptr<Obj3D>> tubeObjects;
+		// 管の区間ごとに描画するかどうか(短すぎて向きが定まらない区間はfalse。BuildTubes()で求める)
+		std::vector<bool> tubeSegmentVisible;
 
 		bool showControlPointModels = true;                 // 制御点の球体モデルの描画フラグ
 		bool showCurve = true;                              // 曲線表示フラグ
@@ -119,6 +121,9 @@ private:
 
 	// 制御点描画用の3Dオブジェクト生成
 	std::unique_ptr<Obj3D> CreatePointObject();
+	// Play中のレール本体の管の位置・向き・大きさを求めて行列を更新する
+	// Play中はレールの形が変わらないため、Playに入ってから最初の描画で1回だけ呼ぶ
+	void BuildTubes();
 	// Play中のレール本体を、塗った区間とそれ以外で色を分けて管として描画する
 	void DrawTubes();
 	// rail.pointObjectsの個数をrail.controlPointsに同期
@@ -147,6 +152,9 @@ private:
 	bool showLandingRange_ = false;
 	// 着地できる範囲の水平方向の許容距離(GameSceneの判定値をSetLandingRangeRadius()で受け取る)
 	float landingRangeRadius_ = kDefaultLandingRangeRadius;
+
+	// Play中のレール本体の管の行列を求め終えたか(Edit中はレールが編集されうるためfalseに戻す)
+	bool areTubesBuilt_ = false;
 
 	Obj3dCommon* objCommon_ = nullptr; // 3Dオブジェクト共通設定へのポインタ
 

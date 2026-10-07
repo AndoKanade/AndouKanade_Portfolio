@@ -21,7 +21,7 @@ public:
 	// テクスチャの読み込みとスプライトの生成
 	void Initialize(SpriteCommon* spriteCommon);
 
-	// すべての線を消し、表示の濃さを0に戻す
+	// すべての線を置き直し、表示の濃さを0に戻す
 	void Reset();
 
 	/// <summary>

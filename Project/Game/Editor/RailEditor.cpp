@@ -268,9 +268,16 @@ void RailEditor::Update(){
 void RailEditor::Draw(){
 	// Playモード中は編集用の目印(制御点の球・曲線の点列・着地範囲)を出さず、レール本体の管だけを描く
 	if(EditorContext::GetInstance()->IsPlayMode()){
+		// Play中はレールの形が変わらないため、管の行列はPlayに入ってから最初の1回だけ求める
+		if(!areTubesBuilt_){
+			BuildTubes();
+		}
 		DrawTubes();
 		return;
 	}
+
+	// Edit中はレールが編集されうるため、次にPlayに入ったときに管の行列を求め直す
+	areTubesBuilt_ = false;
 
 	Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera();
 
@@ -371,13 +378,13 @@ void RailEditor::Draw(){
 	}
 }
 
-// Play中のレール本体を管として描画する
+// Play中のレール本体の管の位置・向き・大きさを求めて行列を更新する
 // レールを細かい区間に分け、区間ごとに円柱を始点から終点へ向けて伸ばして並べる
-void RailEditor::DrawTubes(){
-	Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera();
-
+void RailEditor::BuildTubes(){
 	for(Rail& rail : rails_){
-		// Catmull-Romは制御点4つ以上必要なので、それ未満のときは何も描画しない
+		rail.tubeSegmentVisible.assign(kTubeSegmentCount,false);
+
+		// Catmull-Romは制御点4つ以上必要なので、それ未満のときは管を作らない
 		if(rail.controlPoints.size() < 4){
 			continue;
 		}
@@ -395,10 +402,6 @@ void RailEditor::DrawTubes(){
 				continue;
 			}
 
-			// 区間の中央の進行度が塗った範囲に入っていれば、インクの色にする
-			float middleT = (static_cast<float>(i) + kTubeSegmentMiddleRate) / static_cast<float>(kTubeSegmentCount);
-			bool isPaintedSegment = rail.isPainted && middleT >= rail.paintStartT && middleT <= rail.paintEndT;
-
 			// 円柱のZ軸を区間の向きへ回す(Y軸回転で左右、X軸回転で上下を合わせる)
 			Vector3 direction = segment / length;
 			float horizontalLength = std::sqrt(direction.x * direction.x + direction.z * direction.z);
@@ -408,16 +411,40 @@ void RailEditor::DrawTubes(){
 			tube->SetRotate({std::atan2(-direction.y,horizontalLength), std::atan2(direction.x,direction.z), 0.0f});
 			// つなぎ目に隙間が見えないよう、半径の分だけ長くして次の区間へ少し重ねる
 			tube->SetScale({kTubeRadius, kTubeRadius, length + kTubeRadius});
+			// ワールド行列はここで求めておく(カメラとの合成はDraw()の中で毎回行われる)
+			tube->Update();
+			rail.tubeSegmentVisible[i] = true;
+
+			start = end;
+		}
+	}
+
+	areTubesBuilt_ = true;
+}
+
+// Play中のレール本体を管として描画する
+// 行列はBuildTubes()で求め済みのため、ここでは塗ったかどうかの色とカメラだけを毎フレーム反映する
+void RailEditor::DrawTubes(){
+	Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera();
+
+	for(Rail& rail : rails_){
+		for(int i = 0; i < kTubeSegmentCount; ++i){
+			if(!rail.tubeSegmentVisible[i]){
+				continue;
+			}
+
+			// 区間の中央の進行度が塗った範囲に入っていれば、インクの色にする
+			float middleT = (static_cast<float>(i) + kTubeSegmentMiddleRate) / static_cast<float>(kTubeSegmentCount);
+			bool isPaintedSegment = rail.isPainted && middleT >= rail.paintStartT && middleT <= rail.paintEndT;
+
+			Obj3D* tube = rail.tubeObjects[i].get();
 			if(Model::Material* mat = tube->GetMaterial()){
 				mat->color = isPaintedSegment?kPaintedRailColor:kUnpaintedRailColor;
 			}
 			if(activeCamera){
 				tube->SetCamera(activeCamera);
 			}
-			tube->Update();
 			tube->Draw();
-
-			start = end;
 		}
 	}
 }

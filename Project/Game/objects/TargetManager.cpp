@@ -6,7 +6,6 @@
 #include "ModelManager.h"
 #include "CameraManager.h"
 #include "Camera.h"
-#include "ParticleManager.h"
 #include "GlobalVariables.h"
 #include "ImGuiManager.h"
 #include "EditorWidgets.h"
@@ -160,10 +159,7 @@ bool TargetManager::Update(const Vector3& cameraPosition,const Vector3& cameraFo
 		if(model_ && bullets.CheckHit(model_->GetBoundingSphere(target.position,scale))){
 			target.isAlive = false;
 
-			// 的の撃破位置に火花パーティクルを発生させる
-			ParticleManager::GetInstance()->EmitSpark(target.position);
-
-			// 破片・しぶきの演出と連鎖数の加算は呼び出し側で行うため、壊れた位置を記録しておく
+			// 破片・しぶき・閃光の演出と連鎖数の加算は呼び出し側で行うため、壊れた位置を記録しておく
 			destroyedPositions_.push_back(target.position);
 			continue;
 		}

@@ -69,7 +69,7 @@ GameScene の役割ごとのクラス分割は完了した（2026-10-07）。次
 - クリア画面の "STAGE CLEAR!"、ゲームオーバー画面の "GAME OVER" が ImGui ウィンドウで代用されている。本番用 UI としてはスプライト／テキスト描画に置き換える想定。
 
 **サウンド**
-- SoundManager は存在するが、Game 側のどこからも呼ばれていない。発射音・被弾音・BGM が未実装。
+- タイトルの BGM と決定音（StartSequence）のみ鳴らしている。発射音・被弾音・プレイ中の BGM が未実装。
 
 **実装品質・パフォーマンス**
 - プレイヤーの弾を発射のたびに `make_unique<Obj3D>` して Initialize している（`PlayerBulletManager::Fire`）。敵弾は Enemy 側で使い回しているため、プレイヤーの弾も同様にプーリングしたい。
