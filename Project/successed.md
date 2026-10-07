@@ -570,3 +570,51 @@ GameScene.cpp が約1000行あり、道中作りでさらに処理が増える�
 ### ビルド確認
 
 `MyGameEngine.sln` を Development / Release（x64）でビルドし、成功することを確認した（Game 側のコードからの警告なし）。実機での当たりやすさと、クラス分割後の動作は未確認。
+
+### 4. スプラトゥーン風の三人称カメラ
+
+対象ファイル: `Game/Camera/RailCamera.h/.cpp`、`Game/objects/Player.h/.cpp`、`Game/scenes/GameScene.cpp`、`resource/GlobalVariables/GameScene.json`
+
+参考動画（スプラトゥーン3 隠しステージのレール区間）に合わせて、カメラとプレイヤーの位置関係を変えた。
+
+| 項目 | 変更前 | 変更後 |
+| --- | --- | --- |
+| カメラの位置 | レールの上 1.25 | プレイヤーの後ろ 3.0・上 0.8 を中心に、照準に合わせてプレイヤーの周りを回り込む |
+| プレイヤーの位置 | カメラの前方 6.0（照準を動かすとレールから離れて振り回される） | レールの上に立つ |
+| プレイヤーの向き | レールの向き | 照準の方向（直立） |
+| レールの曲がり | カメラがレールの向きにそのまま合わせる | 少し遅れて追従する（`cameraFollowSharpness`） |
+| 弾の発射位置 | カメラ | プレイヤーの手元から、レティクルの先（カメラの前方 30.0）へ向けて撃つ |
+
+- 調整項目 `cameraDistance` / `cameraFollowSharpness` を追加し、`cameraHeightOffset` を 1.25 から 0.8 に変えた。
+
+### ビルド確認（4.）
+
+この変更はビルド・実機での確認をしていない。
+
+### 5. 参考動画に寄せた手触り・見た目の調整
+
+対象ファイル: `Game/objects/InkEffectManager.h/.cpp`（新規）、`Game/objects/ComboCounter.h/.cpp`（新規）、`Game/objects/StageResult.h`（新規）、`Game/UI/StageHUD.h/.cpp`（新規）、`Game/UI/SpeedLines.h/.cpp`（新規）、`Game/objects/TargetManager.h/.cpp`、`Game/objects/PlayerBulletManager.h/.cpp`、`Game/objects/Player.cpp`、`Game/Editor/RailEditor.h/.cpp`、`Game/scenes/GameScene.h/.cpp`、`Game/scenes/ClearScene.cpp`、`MyGameEngine.vcxproj` / `.filters`
+
+追加した素材: `resource/Bullseye/`（標的の円盤）、`resource/RailTube/`（レールの管）、`resource/InkShard/`（的の破片）、`resource/UI/`（数字・吹き出し・体力アイコン・下地・標的アイコン・スピード線）
+
+参考動画の「的を全部壊さないと次のレールが出ない」仕様は、撃ち漏らすと先へ進めず遊びにくいため採用しない。的は壊すほど連鎖数が伸びる、得をするものとして扱う。
+
+| 項目 | 内容 |
+| --- | --- |
+| 的の見た目 | 白い球から、同心円の模様の円盤（常にカメラの方を向く）に変更 |
+| 壊したときの演出 | 的の色の破片・インクのしぶき・白い閃光を飛ばす（InkEffectManager） |
+| 連鎖数 | 2 秒以内に続けて壊すと「+N」が増える。右上の吹き出しに表示し、増えた瞬間に弾ませる（ComboCounter・StageHUD） |
+| HUD | 左上に体力アイコン、右上に「壊した数/総数」。ImGui を使わないので Release 構成でも表示される（StageHUD） |
+| クリア画面 | 壊した的の数と最大連鎖数を表示（StageResult） |
+| スピード感 | レールを進んでいる間、画面の中心から外へ流れるスピード線と、足元から後ろへ飛ぶインクのしぶきを出す（SpeedLines・InkEffectManager） |
+| レール | Play 中は点列ではなく管で描き、通った区間を黄色、まだの区間をピンクにする（RailEditor） |
+| 弾 | 青い球から、飛ぶ向きへ伸ばした黄色い筋に変更。撃つと手元からしぶきが飛ぶ |
+| 配色 | 自機をインクと同じ黄色に変更 |
+
+- 演出用の 3D オブジェクトは起動時にまとめて生成して使い回す（毎回の生成によるメモリ確保を避ける）。
+- エンジンの GPU パーティクルは加算合成で大きさも変えられず、インクのしぶきに向かないため、Obj3D で作った。
+
+### ビルド確認（5.）
+
+この変更は Windows でのビルド・実機での確認をしていない。DirectX 周りを仮のヘッダーで置き換えて clang で構文チェックだけ行い、変更したファイルにエラーが無いことを確認した。
+

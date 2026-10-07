@@ -74,6 +74,11 @@ public:
 	void ToggleShowControlPointModels();
 	void ToggleShowCurve();
 
+	// アクティブなレールの、進行度tの位置までをインクで塗った区間に含める(Play中にレールの見た目を塗るのに使う)
+	void PaintActiveRail(float t);
+	// 全レールの塗った区間を消す(リスタート時に呼ぶ)
+	void ClearPaint();
+
 	// 着地できる範囲の描画に使う水平方向の許容距離を設定する
 	// 判定値そのものはGameScene側が持っているため、同じ値を二重に持たないよう外から渡してもらう
 	void SetLandingRangeRadius(float radius){ landingRangeRadius_ = radius; }
@@ -100,12 +105,27 @@ private:
 		// 1サンプルにつき左右2個使うため、要素数はkLandingRangeSampleCountの2倍で固定する
 		std::vector<std::unique_ptr<Obj3D>> landingRangeObjects;
 
+		// Play中にレールの本体として描く管(円柱をつないだもの。要素数はkTubeSegmentCountで固定する)
+		std::vector<std::unique_ptr<Obj3D>> tubeObjects;
+		// 管の区間ごとに描画するかどうか(短すぎて向きが定まらない区間はfalse。BuildTubes()で求める)
+		std::vector<bool> tubeSegmentVisible;
+
 		bool showControlPointModels = true;                 // 制御点の球体モデルの描画フラグ
 		bool showCurve = true;                              // 曲線表示フラグ
+
+		// インクで塗った区間(進行度の範囲)。乗った位置から進んだ位置までを塗る
+		bool isPainted = false;
+		float paintStartT = 0.0f;
+		float paintEndT = 0.0f;
 	};
 
 	// 制御点描画用の3Dオブジェクト生成
 	std::unique_ptr<Obj3D> CreatePointObject();
+	// Play中のレール本体の管の位置・向き・大きさを求めて行列を更新する
+	// Play中はレールの形が変わらないため、Playに入ってから最初の描画で1回だけ呼ぶ
+	void BuildTubes();
+	// Play中のレール本体を、塗った区間とそれ以外で色を分けて管として描画する
+	void DrawTubes();
 	// rail.pointObjectsの個数をrail.controlPointsに同期
 	void SyncPointObjectsToControlPoints(Rail& rail);
 	// 新しいレールを1本追加し、アクティブなレールとして切り替える
@@ -133,10 +153,20 @@ private:
 	// 着地できる範囲の水平方向の許容距離(GameSceneの判定値をSetLandingRangeRadius()で受け取る)
 	float landingRangeRadius_ = kDefaultLandingRangeRadius;
 
+	// Play中のレール本体の管の行列を求め終えたか(Edit中はレールが編集されうるためfalseに戻す)
+	bool areTubesBuilt_ = false;
+
 	Obj3dCommon* objCommon_ = nullptr; // 3Dオブジェクト共通設定へのポインタ
 
 	// レール曲線可視化のサンプリング分割数
 	static constexpr int kCurveSampleCount = 100;
+
+	// Play中のレール本体の管の分割数(多いほど曲がりがなめらかになる)
+	static constexpr int kTubeSegmentCount = 120;
+	// Play中のレール本体の管の半径
+	static constexpr float kTubeRadius = 0.05f;
+	// 管の1区間の長さがこれ未満なら、向きが定まらないため描画しない
+	static constexpr float kMinTubeSegmentLength = 1e-4f;
 
 	// 着地できる範囲の可視化のサンプリング分割数(左右2列ぶん描くため曲線より粗くする)
 	static constexpr int kLandingRangeSampleCount = 50;

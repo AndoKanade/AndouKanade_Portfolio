@@ -285,6 +285,18 @@
     <ClCompile Include="Game\UI\Reticle.cpp">
       <Filter>ソース ファイル\Game\UI</Filter>
     </ClCompile>
+    <ClCompile Include="Game\objects\InkEffectManager.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\objects\ComboCounter.cpp">
+      <Filter>ソース ファイル\Game\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\UI\StageHUD.cpp">
+      <Filter>ソース ファイル\Game\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\UI\SpeedLines.cpp">
+      <Filter>ソース ファイル\Game\UI</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Title\LogoHidePattern.cpp">
       <Filter>ソース ファイル\Game\Title</Filter>
     </ClCompile>
@@ -471,6 +483,21 @@
       <Filter>ヘッダー ファイル\Game\Camera</Filter>
     </ClInclude>
     <ClInclude Include="Game\UI\Reticle.h">
+      <Filter>ヘッダー ファイル\Game\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\InkEffectManager.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\ComboCounter.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\objects\StageResult.h">
+      <Filter>ヘッダー ファイル\Game\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\UI\StageHUD.h">
+      <Filter>ヘッダー ファイル\Game\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\UI\SpeedLines.h">
       <Filter>ヘッダー ファイル\Game\UI</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Base\Easing.h">

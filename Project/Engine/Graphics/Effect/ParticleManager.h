@@ -137,8 +137,8 @@ public:
     // ライフサイクル
     void Initialize(DXCommon* dxCommon,SrvManager* srvManager);
     void Finalize();
-    void Update(Camera* camera);
-    void Draw(const Matrix4x4& viewProjectionMatrix);
+    void Update();
+    void Draw(Camera* camera);
 
     // パーティクル操作
     void CreateParticleGroup(const std::string& name,const std::string& textureFilePath,

@@ -21,6 +21,10 @@ class PlayerBulletManager;
 class TargetManager;
 class EnemyManager;
 class Reticle;
+class InkEffectManager;
+class ComboCounter;
+class StageHUD;
+class SpeedLines;
 
 /// <summary>
 /// ゲームシーン
@@ -102,6 +106,18 @@ private:
 	// 画面中央固定のレティクル(照準)
 	std::unique_ptr<Reticle> reticle_;
 
+	// インクのしぶき・的の破片・撃破時の閃光の演出
+	std::unique_ptr<InkEffectManager> inkEffect_;
+
+	// 的を続けて壊したときの連鎖数
+	std::unique_ptr<ComboCounter> comboCounter_;
+
+	// プレイ中の画面表示(体力・壊した的の数・連鎖数)
+	std::unique_ptr<StageHUD> stageHUD_;
+
+	// レールを進んでいる間に出すスピード線
+	std::unique_ptr<SpeedLines> speedLines_;
+
 	// 前フレームがPlayモードだったか(Playに入った瞬間を検出してリセットするのに使う)
 	bool wasPlayMode_ = false;
 
@@ -115,4 +131,6 @@ private:
 	static constexpr float kDeltaTime = 1.0f / 60.0f;
 	// 射撃に使うマウスボタン(左ボタン)
 	static constexpr int kShootMouseButton = 0;
+	// 弾を撃ったときに手元から飛び散らせるインクのしぶきの数
+	static constexpr int kMuzzleSplashCount = 3;
 };

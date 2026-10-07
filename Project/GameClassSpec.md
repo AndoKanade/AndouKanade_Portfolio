@@ -29,9 +29,9 @@ Game/
 ├── systems/   シーンの生成・切り替えの仕組み
 ├── scenes/    GameScene（本編）、ClearScene、GameOverScene
 ├── Title/     GameScene 内で動くステージ開始演出（タイトル → 回り込み → カウントダウン）
-├── objects/   Player / PlayerBulletManager / TargetManager / Enemy / EnemyManager / Ground
+├── objects/   Player / PlayerBulletManager / TargetManager / Enemy / EnemyManager / Ground / InkEffectManager / ComboCounter / StageResult
 ├── Camera/    RailCamera（プレイ用カメラ）/ DebugTopCamera（俯瞰デバッグカメラ）
-├── UI/        Reticle（画面中央のレティクル）
+├── UI/        Reticle（画面中央のレティクル）/ StageHUD（体力・的の数・連鎖数）/ SpeedLines（スピード線）
 └── Editor/    RailEditor / TargetEditor / EnemyEditor（Editモード中の配置ツール）
 ```
 
@@ -128,6 +128,10 @@ Game/
 | `enemyManager_` | 雑魚敵（EnemyManager） |
 | `startSequence_` | ステージ開始演出（StartSequence）。タイトルロゴもこの中で表示する |
 | `reticle_` | 画面中央のレティクル（Reticle） |
+| `inkEffect_` | インクのしぶき・的の破片・閃光の演出（InkEffectManager） |
+| `comboCounter_` | 連鎖数（ComboCounter） |
+| `stageHUD_` | 体力・壊した的の数・連鎖数の表示（StageHUD） |
+| `speedLines_` | スピード線（SpeedLines） |
 
 #### 初期化（Initialize）
 
@@ -146,12 +150,13 @@ Game/
    2. Play 中は `startSequence_->Update()` を呼び、`isGameplayActive`（Play 中かつ開始演出が終わってプレイ可能）を求める。
    3. マウスカーソルの表示を切り替える（`UpdateCursorVisibility()`）。
    4. `Player::UpdateRailProgress()` でレールを進め、`Player::UpdateBasePose()` で基準位置・基準向きを求める。
-   5. `RailCamera::Update()` でカメラを置き、照準の入力を反映する。
+   5. `RailCamera::Update()` でカメラをプレイヤーの後ろ上に置き、照準の入力を反映する。
    6. クリア判定と、状態確認用のデバッグウィンドウ（`ShowStatusWindow()`）。
-   7. `Player::UpdateTransform()` でプレイヤーをカメラの前方に置く。開始演出中は、StartSequence が計算した位置・向きでカメラを上書きする。
+   7. `Player::UpdateTransform()` でプレイヤーをレールの上に立たせ、照準の方向へ向ける。開始演出中は、StartSequence が計算した位置・向きでカメラを上書きする。
    8. 敵の更新、敵弾とプレイヤーの当たり判定、ゲームオーバー判定。
    9. `Player::UpdateMovement()` でジャンプ・WASD 移動・着地判定を行う。地面まで落ちたら `ResetPlayState()` を呼ぶ。
-   10. 射撃、弾の移動、的・敵と弾の当たり判定、弾の削除と行列の更新、レティクルの色の更新。
+   10. 射撃（手元からインクのしぶきも出す）、弾の移動、的・敵と弾の当たり判定、壊れた的ごとの演出と連鎖数の加算、弾の削除と行列の更新、レティクルの色の更新。
+   11. 演出・スピード線・HUD の更新。レールを進んでいる間は、通った区間を塗り、足元から後ろへしぶきを飛ばし、スピード線を出す。
 3. デバッグ用のキー操作（F1 / F4 / F5）と、Edit モード中の ImGui パネル（`ShowEditorPanels()`）を処理する。
 
 - 4〜10 のうち入力・移動・当たり判定・勝敗判定は、`isGameplayActive` が true のときだけ動く。Edit 中・開始演出中は表示の更新だけ行う。
@@ -160,9 +165,9 @@ Game/
 
 | 項目 | 内容 |
 | --- | --- |
-| 射撃 | 左クリックで、カメラの位置から前方へ弾を発射する |
+| 射撃 | 左クリックで、プレイヤーの手元（`Player::GetMuzzlePosition()`）から、カメラの前方 30.0 の点（レティクルの先）へ向けて弾を発射する |
 | 落下リスタート | どのレールにも乗れずに地面の高さまで落ちたら `ResetPlayState()` を呼ぶ。開始演出は挟まない |
-| クリア | オンレール中にレールの終端に着いたら CLEAR へ移る |
+| クリア | オンレール中にレールの終端に着いたら CLEAR へ移る。移る前に壊した的の数・総数・最大連鎖数を StageResult に書き込む（的を全部壊すことはクリアの条件にしない） |
 | ゲームオーバー | プレイヤーの体力が 0 になったら GAMEOVER へ移る |
 | 当たり判定 | すべてモデルの頂点から求めた境界球（`Model::BoundingSphere`）同士の重なりで判定する。プレイヤー・敵本体はワールド行列で変換した球（`Obj3D::GetWorldBoundingSphere()`）、弾・的は現在座標と表示スケールから求めた球を使う |
 
@@ -186,7 +191,9 @@ Game/
 | キー | 初期値 | 登録するクラス | 内容 |
 | --- | --- | --- | --- |
 | `railSpeed` | 0.05 | Player | レール全体の進行速度 |
-| `cameraHeightOffset` | 1.25 | RailCamera | カメラをレールより上に置く量 |
+| `cameraHeightOffset` | 0.8 | RailCamera | カメラの回転の中心をレールより上に置く量 |
+| `cameraDistance` | 3.0 | RailCamera | カメラをプレイヤーの後ろへ離す距離 |
+| `cameraFollowSharpness` | 8.0 | RailCamera | レールの向きへカメラが追従する速さ（大きいほど遅れが小さい） |
 | `mouseSensitivity` | 0.0004 | RailCamera | マウス照準の感度 |
 | `aimYawLimit` | 0.6 | RailCamera | 照準の左右の可動範囲（ラジアン） |
 | `aimPitchLimit` | 0.5 | RailCamera | 照準の上下の可動範囲（ラジアン） |
@@ -428,7 +435,9 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | --- | --- |
 | 見た目 | `human/walk.gltf`（青色）、スケール 0.3 |
 | レール移動 | `railT_`（0〜1）を「制御点ごとの Speed × `railSpeed` × 経過時間」で進める。終端（1.0）で止まる |
-| 表示位置 | 基準位置（オンレール中はレール上の点、オフレール中は自由移動の座標）から、カメラの前方 6.0 の位置の少し下（0.1） |
+| 表示位置 | 基準位置（オンレール中はレール上の点、オフレール中は自由移動の座標）にそのまま立たせる |
+| 体の向き | カメラの左右の向き（照準の方向）。レールが傾いていても体は直立させる |
+| 弾を撃ち出す位置 | 表示位置から 0.35 上（胸の高さ）。`GetMuzzlePosition()` で取得する |
 | ジャンプ | SPACE でレールを離れる。上向きの初速は 6.0、重力は 9.8。離れた瞬間の向きをオフレール中の基準向きとして固定する |
 | オフレール移動 | WASD で、カメラ基準の水平方向へ 8.0 で動く |
 | 着地 | 落下中に「水平距離が `kOnRailHorizontalThreshold`（1.0）以内」かつ「前フレームより下へレールの高さを跨いだ」ら、そのレールに乗り移る |
@@ -442,12 +451,13 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | `Reset()` | レール先頭・オンレール・体力満タンの状態に戻す |
 | `UpdateRailProgress(railEditor, isGameplayActive, deltaTime)` | プレイ可能かつオンレール中、かつ終端未到達のときだけレールを進める |
 | `UpdateBasePose(railEditor)` | オンレール / オフレールに応じて、カメラ・プレイヤーの共通の基準位置と基準向きを求める |
-| `UpdateTransform(cameraForward, hopHeight)` | 表示位置を求め、モデルの行列を更新する。タイトル中の跳ね（`hopHeight`）は見た目だけに反映する |
+| `UpdateTransform(cameraRotation, hopHeight)` | 表示位置と体の向きを求め、モデルの行列を更新する。タイトル中の跳ね（`hopHeight`）は見た目だけに反映する |
 | `UpdateInvincible(deltaTime)` | 無敵時間を進める |
 | `TakeDamage()` | 無敵中でなければ体力を 1 減らし、無敵時間を始める |
 | `UpdateMovement(input, railEditor, cameraForward, cameraRight, groundHeight, deltaTime)` | ジャンプ・WASD 移動・着地判定。地面まで落ちてリスタートが必要になったら true を返す |
 | `GetHitSphere()` | モデルから求めたワールド座標系の境界球を取得する（当たり判定用） |
 | `GetPosition` / `GetBasePosition` / `GetBaseRotation` | 表示位置・基準位置・基準向きの取得 |
+| `GetMuzzlePosition()` | 弾を撃ち出す位置の取得 |
 | `HasReachedGoal` / `IsDead` | クリア・ゲームオーバーの判定用 |
 | `GetRailT` / `IsOnRail` / `GetFreeVelocityY` / `GetHp` / `GetMaxHp` / `GetInvincibleTimer` | デバッグ表示用の取得 |
 
@@ -457,7 +467,7 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 
 | 項目 | 内容 |
 | --- | --- |
-| 見た目 | `Sphere/sphere.obj`（青色）、スケール 0.15 |
+| 見た目 | `Sphere/sphere.obj`（インクの黄色・ライティングなし）。飛ぶ向きへ伸ばし、太さ 0.15×0.6・長さ 0.15×5.0 の筋にする（当たり判定はスケール 0.15 の球のまま） |
 | 弾道 | 速度 40、重力 9.8、寿命 2 秒 |
 | ダメージ | 敵 1 体に 1 発あたり 1 |
 | 生成 | 発射のたびに `make_unique<Obj3D>` で生成している（使い回しは未対応） |
@@ -479,9 +489,9 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 
 | 項目 | 内容 |
 | --- | --- |
-| 見た目 | `Sphere/sphere.obj`、スケール 0.4（狙えているときは 0.6） |
+| 見た目 | `Bullseye/bullseye.obj`（同心円の模様の円盤）、スケール 0.4（狙えているときは 0.6）。模様の面を常にカメラへ向ける |
 | 照準判定 | 「カメラ → 的」の向きとカメラの前方ベクトルのなす角が `aimHitAngle` 以内なら狙えている。的が大きくなり、レティクルの中心ドットが赤くなる |
-| 命中 | 弾と的の境界球が重なったら撃破し、火花パーティクルを出す |
+| 命中 | 弾と的の境界球が重なったら撃破し、火花パーティクルを出す。壊れた位置は `GetDestroyedPositions()` で受け取れる（GameScene が破片・しぶきの演出と連鎖数の加算に使う） |
 | 初回の自動配置 | 保存データが無いとき、レール上の 16 か所に左右交互・上下・奥行きをずらして配置する |
 
 | 関数 | 内容 |
@@ -490,6 +500,8 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | `UpdateEditor()` | TargetEditor を更新し、個数・座標を的のリストに反映する。個数が変わったときだけ生成・削除する |
 | `Update(cameraPosition, cameraForward, bullets)` | 照準判定・弾との当たり判定・行列の更新。いずれかの的を狙えていれば true を返す |
 | `Reset()` / `Draw()` | 全ての的を復活させる / 生存している的を描画する |
+| `GetDestroyedPositions()` | 直前の `Update()` で壊れた的の座標の一覧を取得する |
+| `GetTotalCount()` / `GetDestroyedCount()` | 的の総数 / 壊された的の数を取得する |
 | `ShowHierarchy()` / `ShowInspector()` | Hierarchy / Inspector パネルの中身を表示する（ImGui がある構成のみ） |
 
 ### EnemyManager（`objects/EnemyManager.h/.cpp`）
@@ -516,6 +528,40 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | `Update()` / `Draw()` | 行列の更新 / 描画 |
 | `GetHeight()` | 地面の高さを取得する（落下リスタートの判定に使う） |
 
+### InkEffectManager（`objects/InkEffectManager.h/.cpp`）
+
+インクのしぶき・的の破片・撃破時の閃光の演出。起動時にしぶき 160・破片 48・閃光 8 個の Obj3D を生成して使い回し、空きが無いときは一番古いものを上書きする。
+
+| 種類 | モデル | 動き |
+| --- | --- | --- |
+| しぶき | `Sphere/sphere.obj`（インクの黄色） | 重力 12 で落ち、飛ぶ向きへ伸びる（最大 3 倍）。寿命の後半で縮んで消える |
+| 破片 | `InkShard/shard.obj`（的の緑・オレンジ・白・黒） | 重力 14 で落ちながら回転する。寿命の後半で縮んで消える |
+| 閃光 | `Sphere/sphere.obj`（白・ライティングなし） | 0.12 秒で 4 倍に広がりながら透明になる |
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(Obj3dCommon*)` | モデルの読み込みと、使い回す Obj3D の生成 |
+| `Reset()` | 出ている演出をすべて消す |
+| `EmitTargetBreak(position)` | 的を壊したときの演出（破片 10・しぶき 14・閃光 1） |
+| `EmitInkSplash(position, direction, count)` | 指定した向きへ飛び散るしぶき（弾を撃ったときの手元に使う） |
+| `EmitRailTrail(position, backward)` | レールを進んでいる間、足元から後ろへ飛ぶしぶき（1 回で 1 粒） |
+| `Update(deltaTime)` / `Draw()` | 移動・回転・縮小・寿命の更新 / 描画 |
+
+### ComboCounter（`objects/ComboCounter.h/.cpp`）
+
+的を続けて壊したときの連鎖数。壊すたびに 1 増え、2 秒以内に次の的を壊さないと 0 に戻る。先に進む条件にはしない。
+
+| 関数 | 内容 |
+| --- | --- |
+| `Reset()` | 連鎖数・最大連鎖数を 0 に戻す |
+| `AddHit()` | 連鎖数を 1 増やし、途切れるまでの時間を最初からにする |
+| `Update(deltaTime)` | 途切れるまでの時間と、増えたときに弾む表示の時間（0.15 秒）を進める |
+| `GetCombo` / `GetMaxCombo` / `GetRemainingRate` / `GetPopRate` | 今の連鎖数 / 最大連鎖数 / 途切れるまでの残りの割合 / 弾む表示の残りの割合 |
+
+### StageResult（`objects/StageResult.h`）
+
+クリア画面へ渡すプレイの結果（壊した的の数・的の総数・最大連鎖数）。シーンは切り替えのたびに作り直されるため、GameScene がクリア直前に書き込み、ClearScene が読み出す。
+
 ---
 
 ## 6. Camera（カメラ）
@@ -526,15 +572,15 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 
 | 項目 | 内容 |
 | --- | --- |
-| 位置 | プレイヤーの基準位置から `cameraHeightOffset` だけ上 |
-| 向き | 基準向き＋マウスの照準オフセット |
+| 位置 | プレイヤーの基準位置から `cameraHeightOffset` だけ上の点を中心に、カメラの向きの後ろ側へ `cameraDistance` だけ離した位置。照準を動かすとプレイヤーの周りを回り込む |
+| 向き | 基準向きへ `cameraFollowSharpness` で少し遅れて追従させた向き＋マウスの照準オフセット。リセット直後は遅れなしで合わせる |
 | 照準 | マウス移動量 × `mouseSensitivity`。左右は `aimYawLimit`、上下は `aimPitchLimit` の範囲に制限する |
 
 | 関数 | 内容 |
 | --- | --- |
-| `Initialize(paramGroup)` | 調整項目（`cameraHeightOffset` / `mouseSensitivity` / `aimYawLimit` / `aimPitchLimit`）の登録 |
-| `Reset()` | 照準オフセットを 0 に戻す |
-| `Update(basePosition, baseRotation, isInputEnabled, input)` | 位置・向き・前方ベクトル・右方向ベクトルを計算し、カメラに反映する |
+| `Initialize(paramGroup)` | 調整項目（`cameraHeightOffset` / `cameraDistance` / `cameraFollowSharpness` / `mouseSensitivity` / `aimYawLimit` / `aimPitchLimit`）の登録 |
+| `Reset()` | 照準オフセットを 0 に戻し、次の更新で追従の遅れなしにレールの向きへ合わせる |
+| `Update(basePosition, baseRotation, isInputEnabled, input, deltaTime)` | 位置・向き・前方ベクトル・右方向ベクトルを計算し、カメラに反映する |
 | `GetPosition` / `GetRotation` / `GetForward` / `GetRight` | 計算結果の取得 |
 
 ### DebugTopCamera（`Camera/DebugTopCamera.h/.cpp`）
@@ -564,6 +610,34 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | `SetAiming(bool)` | 狙えているときは中心ドットを赤、それ以外は白にする |
 | `Draw()` | スプライト共通の描画前処理を行ってから描画する |
 
+### StageHUD（`UI/StageHUD.h/.cpp`）
+
+プレイ中の画面表示。ImGui を使わずスプライトで描くため、Release 構成でも表示される。Play 中のタイトル・カメラの回り込み以外で表示する。
+
+| 表示 | 位置 | 内容 |
+| --- | --- | --- |
+| 体力 | 左上 | `UI/lifeIcon.png` を最大体力の数だけ並べ、減った分は暗く半透明にする |
+| 壊した的の数 | 右上 | 下地（`UI/panel.png`）の上に標的のアイコンと「壊した数/総数」 |
+| 連鎖数 | 壊した的の数の下 | オレンジの吹き出し（`UI/comboBubble.png`）に「+N」。増えた瞬間に弾み、途切れる直前に薄くなる |
+
+- 数字は `UI/digits.png`（0〜9, +, / を 64 × 80 で横一列に並べたもの）から 1 文字ずつ切り出して並べる。
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(SpriteCommon*)` | テクスチャの読み込みとスプライトの生成 |
+| `Update(hp, maxHp, destroyedCount, totalCount, combo)` | 表示内容の更新 |
+| `Draw()` | スプライト共通の描画前処理を行ってから描画する |
+
+### SpeedLines（`UI/SpeedLines.h/.cpp`）
+
+画面の中心から外側へ流れる白いスピード線（`UI/speedLine.png`、28 本）。レールを進んでいる間だけ濃くなり、乗っていないときはゆっくり消える。画面の中心付近（半径 280 ピクセル）は自機と照準が見えるよう空けておく。
+
+| 関数 | 内容 |
+| --- | --- |
+| `Initialize(SpriteCommon*)` | テクスチャの読み込みとスプライトの生成 |
+| `Reset()` | 線を置き直し、表示の濃さを 0 に戻す |
+| `Update(isActive, deltaTime)` / `Draw()` | 線の移動と表示の濃さの更新 / 描画 |
+
 ---
 
 ## 8. Editor（配置エディター）
@@ -584,7 +658,8 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
   - 分岐設定：保存はされるが、今の実行時には読まれない
 - 位置は Catmull-Rom スプラインで補間する。
 - 向き（ピッチ・ヨー）は進行方向から逆算し、ロールは制御点間を線形補間する。
-- 描画では、アクティブなレールを黄色、それ以外を黒で表示する。
+- Edit モードの描画では、アクティブなレールを黄色、それ以外を黒で表示する。
+- Play モードの描画では、編集用の目印（制御点の球・曲線の点列・着地範囲）は出さず、レール本体を管（`RailTube/railTube.obj` を 120 区間つないだもの、半径 0.05）で描く。インクで塗った区間（`PaintActiveRail(t)` で広げ、`ClearPaint()` で消す）は黄色、それ以外はピンクにする。
 
 #### ImGui パネル「Rail Editor」
 

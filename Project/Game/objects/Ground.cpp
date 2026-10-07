@@ -5,6 +5,8 @@
 #include "ModelManager.h"
 #include "CameraManager.h"
 #include "Camera.h"
+#include "GlobalVariables.h"
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <string>
@@ -47,11 +49,12 @@ namespace{
 
 	// 霧の層(下から順)
 	// 下ほど濃く上ほど薄くして厚みのあるもやに見せ、層ごとに模様の細かさ・流れる向き・速さを変えて立体的に動かす
+	// 4層を重ねた合計の濃さが高すぎると下の雲の起伏が見えなくなるため、各層の不透明度は低めにして雲が透けて見えるようにする
 	constexpr std::array<FogLayerSetting,4> kFogLayers = {{
-		{0.15f, 0.55f, 1.0f, {0.00f, 0.00f}, {0.03f, 0.05f}},
-		{0.40f, 0.40f, 2.0f, {0.37f, 0.21f}, {-0.04f, 0.03f}},
-		{0.70f, 0.28f, 1.0f, {0.62f, 0.84f}, {0.05f, -0.02f}},
-		{1.05f, 0.16f, 2.0f, {0.15f, 0.53f}, {-0.02f, -0.04f}},
+		{0.15f, 0.25f, 1.0f, {0.00f, 0.00f}, {0.03f, 0.05f}},
+		{0.40f, 0.17f, 2.0f, {0.37f, 0.21f}, {-0.04f, 0.03f}},
+		{0.70f, 0.11f, 1.0f, {0.62f, 0.84f}, {0.05f, -0.02f}},
+		{1.05f, 0.06f, 2.0f, {0.15f, 0.53f}, {-0.02f, -0.04f}},
 	}};
 }
 
@@ -60,10 +63,15 @@ Ground::~Ground() = default;
 
 // 雲と霧のタイルの生成
 // 雲は起伏の高さを板の厚み方向の拡大率で調整し、霧の層は雲と同じ拡大率にして雲の形に沿わせる
-void Ground::Initialize(Obj3dCommon* objCommon,const Vector3& startPosition,const Vector3& forward){
+void Ground::Initialize(Obj3dCommon* objCommon,const Vector3& startPosition,const Vector3& forward,const std::string& paramGroup){
 	if(!objCommon){
 		return;
 	}
+
+	// 霧の濃さの倍率を調整項目に登録する(第3引数はデフォルト値。保存済みJSONがあればそちらが優先される)
+	// ImGuiの "Global Variables" ウィンドウから実行中に変更でき、次のUpdate()で全層の不透明度に反映される
+	paramGroup_ = paramGroup;
+	GlobalVariables::GetInstance()->AddItem(paramGroup_,"fogDensity",kDefaultFogDensity);
 
 	ModelManager::GetInstance()->LoadModel(kCloudModelPath);
 	ModelManager::GetInstance()->LoadModel(kFogModelPath);
@@ -150,6 +158,9 @@ void Ground::Update(float deltaTime){
 
 	UpdateTiles(cloudTiles_);
 
+	// 調整項目から霧の濃さの倍率を取得(ImGui編集/ホットリロードが即反映される)
+	const float fogDensity = GlobalVariables::GetInstance()->GetFloatValue(paramGroup_,"fogDensity");
+
 	for(size_t layerIndex = 0; layerIndex < fogLayers_.size(); ++layerIndex){
 		const FogLayerSetting& setting = kFogLayers[layerIndex];
 		FogLayer& layer = fogLayers_[layerIndex];
@@ -164,9 +175,14 @@ void Ground::Update(float deltaTime){
 			{setting.uvScale, setting.uvScale, kUvDepthScale},
 			kUvNoRotation,
 			{layer.uvOffset.x, layer.uvOffset.y, 0.0f});
+
+		// 層ごとの不透明度に濃さの倍率を掛ける(下ほど濃く上ほど薄い関係は保ったまま、全体の濃さだけを変える)
+		const float fogAlpha = std::clamp(setting.alpha * fogDensity,kFogAlphaMin,kFogAlphaMax);
+
 		for(auto& tile : layer.tiles){
 			if(Model::Material* material = tile->GetMaterial()){
 				material->uvTransform = uvTransform;
+				material->color.w = fogAlpha;
 			}
 		}
 

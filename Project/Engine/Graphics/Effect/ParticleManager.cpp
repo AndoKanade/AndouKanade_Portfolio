@@ -273,18 +273,8 @@ void ParticleManager::CreateParticleGroup(const std::string& name,const std::str
     particleGroups_.insert(std::make_pair(name,std::move(group)));
 }
 
-void ParticleManager::Update(Camera* camera){
-    assert(camera);
+void ParticleManager::Update(){
     const float kDeltaTime = 1.0f / 60.0f;
-
-    // カメラ行列の計算
-    Matrix4x4 viewMatrix = camera->GetViewMatrix();
-    Matrix4x4 projectionMatrix = camera->GetProjectionMatrix();
-    Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix,projectionMatrix);
-    Matrix4x4 billboardMatrix = camera->GetWorldMatrix();
-    billboardMatrix.m[3][0] = 0.0f;
-    billboardMatrix.m[3][1] = 0.0f;
-    billboardMatrix.m[3][2] = 0.0f;
 
     // 全パーティクルグループの更新
     for(auto& [name,group] : particleGroups_){
@@ -303,19 +293,29 @@ void ParticleManager::Update(Camera* camera){
     }
 
     // 定数バッファの更新
-    if(perViewData_){
-        perViewData_->viewProjection = viewProjectionMatrix;
-        perViewData_->billboardMatrix = billboardMatrix;
-    }
+    // カメラ行列(perViewData_)はカメラ更新後の値を使うため、Draw()で書き込む
     if(perFrameData_){
         perFrameData_->deltaTime = kDeltaTime;
         perFrameData_->time += kDeltaTime;
     }
 }
 
-void ParticleManager::Draw(const Matrix4x4& viewProjectionMatrix){
+void ParticleManager::Draw(Camera* camera){
     assert(dxCommon_);
+    assert(camera);
     auto commandList = dxCommon_->GetCommandList();
+
+    // カメラ行列の計算
+    // Update()の時点ではカメラ行列が前フレームのままのため、カメラ更新後の描画時に求めて1フレームの遅れを防ぐ
+    Matrix4x4 billboardMatrix = camera->GetWorldMatrix();
+    billboardMatrix.m[3][0] = 0.0f;
+    billboardMatrix.m[3][1] = 0.0f;
+    billboardMatrix.m[3][2] = 0.0f;
+
+    if(perViewData_){
+        perViewData_->viewProjection = camera->GetViewProjectionMatrix();
+        perViewData_->billboardMatrix = billboardMatrix;
+    }
 
     for(auto& [name,group] : particleGroups_){
         if(group->numInstance == 0) continue;

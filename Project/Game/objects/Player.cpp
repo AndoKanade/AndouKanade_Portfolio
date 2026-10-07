@@ -13,8 +13,8 @@ namespace{
 	// プレイヤーの表示に使用するモデル
 	const std::string kPlayerModelPath = "human/walk.gltf";
 
-	// 体の色(敵と区別できるよう、弾と同系統の青にする)
-	constexpr Vector4 kPlayerColor = {0.3f, 0.5f, 1.0f, 1.0f};
+	// 体の色(参考にしたスプラトゥーンの映像に合わせ、自分のインクと同じ黄色にする)
+	constexpr Vector4 kPlayerColor = {1.0f, 0.85f, 0.15f, 1.0f};
 }
 
 Player::Player() = default;
@@ -30,7 +30,7 @@ void Player::Initialize(Obj3dCommon* objCommon,const std::string& paramGroup){
 	obj_->Initialize(objCommon);
 	obj_->SetModel(kPlayerModelPath);
 
-	// 体の色は生成時に一度設定するだけでよいため、ここで青にしておく
+	// 体の色は生成時に一度設定するだけでよいため、ここで黄色にしておく
 	if(Model::Material* material = obj_->GetMaterial()){
 		material->color = kPlayerColor;
 	}
@@ -89,10 +89,10 @@ void Player::UpdateBasePose(const RailEditor* railEditor){
 }
 
 // 表示位置の計算とモデルの行列更新
-// プレイヤーをカメラの前方下(基準位置)に配置し、進行方向(基準向き)を向かせる
-void Player::UpdateTransform(const Vector3& cameraForward,float hopHeight){
-	position_ = basePosition_ + cameraForward * kDistanceFromCamera;
-	position_.y -= kDownOffset; // スプラトゥーン風に、基準位置よりさらに下に表示する
+// プレイヤーはレールの上(基準位置)に立たせ、体は照準の方向(カメラの左右の向き)へ向ける
+// レールの傾きに合わせて体を倒すと照準とずれて見えるため、体は常に直立させる
+void Player::UpdateTransform(const Vector3& cameraRotation,float hopHeight){
+	position_ = basePosition_;
 
 	if(!obj_){
 		return;
@@ -100,7 +100,7 @@ void Player::UpdateTransform(const Vector3& cameraForward,float hopHeight){
 
 	// タイトル中の跳ねは見た目だけに反映し、カメラ・ロゴ・敵が基準にする position_ は動かさない
 	obj_->SetTranslate({position_.x, position_.y + hopHeight, position_.z});
-	obj_->SetRotate(baseRotation_);
+	obj_->SetRotate({0.0f, cameraRotation.y, 0.0f});
 	obj_->SetScale({kScale, kScale, kScale}); // 小さめのスケールで表示
 	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
 		obj_->SetCamera(activeCamera);
