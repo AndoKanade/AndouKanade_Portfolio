@@ -535,6 +535,27 @@ float RailEditor::GetSpeedOnRail(float t) const{
 	return Lerp(controlPoints[segment].speed,controlPoints[segment + 1].speed,localT);
 }
 
+// 進行度tの位置からレールに沿ってdistanceだけ進んだ先の進行度を取得(対象はアクティブなレール)
+// 進行度tは区間ごとに等分されているため、制御点間が長い区間ほど進行度1あたりの移動距離が大きくなる
+// そこで現在位置での「進行度1あたりの移動距離」で割り、進む距離を進行度の増加量に変換する
+float RailEditor::AdvanceTByDistance(float t,float distance) const{
+	// 終端付近では後ろ側の差分を使い、進行度が範囲外にならないようにする
+	float t0 = t;
+	float t1 = t + kArcLengthSampleDelta;
+	if(t1 > 1.0f){
+		t0 = 1.0f - kArcLengthSampleDelta;
+		t1 = 1.0f;
+	}
+
+	// 進行度1あたりの移動距離(1フレームの移動量は小さいため、現在位置の値で直線近似する)
+	float distancePerT = Distance(GetPositionOnRail(t1),GetPositionOnRail(t0)) / kArcLengthSampleDelta;
+	if(distancePerT < kMinDistancePerT){
+		return t;
+	}
+
+	return t + distance / distancePerT;
+}
+
 // 指定インデックスのレールをアクティブなレールとして切り替える(Playモードでのレール乗り換えにも使用)
 void RailEditor::SwitchActiveRail(int index){
 	if(index < 0 || index >= static_cast<int>(rails_.size())){

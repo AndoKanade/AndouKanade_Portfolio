@@ -50,6 +50,9 @@ public:
 	Vector3 GetForwardOnRail(float t) const;
 	// レール上の速度(各制御点のSpeed値を補間したもの)を取得 (t: 0〜1)。対象はアクティブなレール
 	float GetSpeedOnRail(float t) const;
+	// 進行度tの位置からレールに沿ってdistance(ワールド座標の距離)だけ進んだ先の進行度を取得。対象はアクティブなレール
+	// 制御点間の距離に関係なく一定の速さで進めるために使う
+	float AdvanceTByDistance(float t,float distance) const;
 
 	// 全レールの中から、指定したワールド座標に最も近いレール・進行度・距離を求める(着地先レールの探索用)
 	// excludeRailIndexに指定したレールは探索対象から外す(-1: 除外なし。並走レールへの乗り換えで今のレールを外すのに使う)
@@ -145,4 +148,10 @@ private:
 	static constexpr int kNearestSearchSampleCount = 200;
 	// 粗探索後、三分探索で絞り込む反復回数
 	static constexpr int kNearestRefineIterationCount = 20;
+
+	// 距離から進行度を求めるときに使う定数
+	// 進行度1あたりの移動距離を前後の座標の差分で求めるときの、進行度tの刻み幅
+	static constexpr float kArcLengthSampleDelta = 0.001f;
+	// 進行度1あたりの移動距離がこれ未満なら、制御点が重なっているとみなして進行度を進めない(0除算防止)
+	static constexpr float kMinDistancePerT = 1e-5f;
 };
