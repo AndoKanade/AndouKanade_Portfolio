@@ -146,9 +146,9 @@ Game/
    2. Play 中は `startSequence_->Update()` を呼び、`isGameplayActive`（Play 中かつ開始演出が終わってプレイ可能）を求める。
    3. マウスカーソルの表示を切り替える（`UpdateCursorVisibility()`）。
    4. `Player::UpdateRailProgress()` でレールを進め、`Player::UpdateBasePose()` で基準位置・基準向きを求める。
-   5. `RailCamera::Update()` でカメラを置き、照準の入力を反映する。
+   5. `RailCamera::Update()` でカメラをプレイヤーの後ろ上に置き、照準の入力を反映する。
    6. クリア判定と、状態確認用のデバッグウィンドウ（`ShowStatusWindow()`）。
-   7. `Player::UpdateTransform()` でプレイヤーをカメラの前方に置く。開始演出中は、StartSequence が計算した位置・向きでカメラを上書きする。
+   7. `Player::UpdateTransform()` でプレイヤーをレールの上に立たせ、照準の方向へ向ける。開始演出中は、StartSequence が計算した位置・向きでカメラを上書きする。
    8. 敵の更新、敵弾とプレイヤーの当たり判定、ゲームオーバー判定。
    9. `Player::UpdateMovement()` でジャンプ・WASD 移動・着地判定を行う。地面まで落ちたら `ResetPlayState()` を呼ぶ。
    10. 射撃、弾の移動、的・敵と弾の当たり判定、弾の削除と行列の更新、レティクルの色の更新。
@@ -160,7 +160,7 @@ Game/
 
 | 項目 | 内容 |
 | --- | --- |
-| 射撃 | 左クリックで、カメラの位置から前方へ弾を発射する |
+| 射撃 | 左クリックで、プレイヤーの手元（`Player::GetMuzzlePosition()`）から、カメラの前方 30.0 の点（レティクルの先）へ向けて弾を発射する |
 | 落下リスタート | どのレールにも乗れずに地面の高さまで落ちたら `ResetPlayState()` を呼ぶ。開始演出は挟まない |
 | クリア | オンレール中にレールの終端に着いたら CLEAR へ移る |
 | ゲームオーバー | プレイヤーの体力が 0 になったら GAMEOVER へ移る |
@@ -186,7 +186,9 @@ Game/
 | キー | 初期値 | 登録するクラス | 内容 |
 | --- | --- | --- | --- |
 | `railSpeed` | 0.05 | Player | レール全体の進行速度 |
-| `cameraHeightOffset` | 1.25 | RailCamera | カメラをレールより上に置く量 |
+| `cameraHeightOffset` | 0.8 | RailCamera | カメラの回転の中心をレールより上に置く量 |
+| `cameraDistance` | 3.0 | RailCamera | カメラをプレイヤーの後ろへ離す距離 |
+| `cameraFollowSharpness` | 8.0 | RailCamera | レールの向きへカメラが追従する速さ（大きいほど遅れが小さい） |
 | `mouseSensitivity` | 0.0004 | RailCamera | マウス照準の感度 |
 | `aimYawLimit` | 0.6 | RailCamera | 照準の左右の可動範囲（ラジアン） |
 | `aimPitchLimit` | 0.5 | RailCamera | 照準の上下の可動範囲（ラジアン） |
@@ -428,7 +430,9 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | --- | --- |
 | 見た目 | `human/walk.gltf`（青色）、スケール 0.3 |
 | レール移動 | `railT_`（0〜1）を「制御点ごとの Speed × `railSpeed` × 経過時間」で進める。終端（1.0）で止まる |
-| 表示位置 | 基準位置（オンレール中はレール上の点、オフレール中は自由移動の座標）から、カメラの前方 6.0 の位置の少し下（0.1） |
+| 表示位置 | 基準位置（オンレール中はレール上の点、オフレール中は自由移動の座標）にそのまま立たせる |
+| 体の向き | カメラの左右の向き（照準の方向）。レールが傾いていても体は直立させる |
+| 弾を撃ち出す位置 | 表示位置から 0.35 上（胸の高さ）。`GetMuzzlePosition()` で取得する |
 | ジャンプ | SPACE でレールを離れる。上向きの初速は 6.0、重力は 9.8。離れた瞬間の向きをオフレール中の基準向きとして固定する |
 | オフレール移動 | WASD で、カメラ基準の水平方向へ 8.0 で動く |
 | 着地 | 落下中に「水平距離が `kOnRailHorizontalThreshold`（1.0）以内」かつ「前フレームより下へレールの高さを跨いだ」ら、そのレールに乗り移る |
@@ -442,12 +446,13 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | `Reset()` | レール先頭・オンレール・体力満タンの状態に戻す |
 | `UpdateRailProgress(railEditor, isGameplayActive, deltaTime)` | プレイ可能かつオンレール中、かつ終端未到達のときだけレールを進める |
 | `UpdateBasePose(railEditor)` | オンレール / オフレールに応じて、カメラ・プレイヤーの共通の基準位置と基準向きを求める |
-| `UpdateTransform(cameraForward, hopHeight)` | 表示位置を求め、モデルの行列を更新する。タイトル中の跳ね（`hopHeight`）は見た目だけに反映する |
+| `UpdateTransform(cameraRotation, hopHeight)` | 表示位置と体の向きを求め、モデルの行列を更新する。タイトル中の跳ね（`hopHeight`）は見た目だけに反映する |
 | `UpdateInvincible(deltaTime)` | 無敵時間を進める |
 | `TakeDamage()` | 無敵中でなければ体力を 1 減らし、無敵時間を始める |
 | `UpdateMovement(input, railEditor, cameraForward, cameraRight, groundHeight, deltaTime)` | ジャンプ・WASD 移動・着地判定。地面まで落ちてリスタートが必要になったら true を返す |
 | `GetHitSphere()` | モデルから求めたワールド座標系の境界球を取得する（当たり判定用） |
 | `GetPosition` / `GetBasePosition` / `GetBaseRotation` | 表示位置・基準位置・基準向きの取得 |
+| `GetMuzzlePosition()` | 弾を撃ち出す位置の取得 |
 | `HasReachedGoal` / `IsDead` | クリア・ゲームオーバーの判定用 |
 | `GetRailT` / `IsOnRail` / `GetFreeVelocityY` / `GetHp` / `GetMaxHp` / `GetInvincibleTimer` | デバッグ表示用の取得 |
 
@@ -526,15 +531,15 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 
 | 項目 | 内容 |
 | --- | --- |
-| 位置 | プレイヤーの基準位置から `cameraHeightOffset` だけ上 |
-| 向き | 基準向き＋マウスの照準オフセット |
+| 位置 | プレイヤーの基準位置から `cameraHeightOffset` だけ上の点を中心に、カメラの向きの後ろ側へ `cameraDistance` だけ離した位置。照準を動かすとプレイヤーの周りを回り込む |
+| 向き | 基準向きへ `cameraFollowSharpness` で少し遅れて追従させた向き＋マウスの照準オフセット。リセット直後は遅れなしで合わせる |
 | 照準 | マウス移動量 × `mouseSensitivity`。左右は `aimYawLimit`、上下は `aimPitchLimit` の範囲に制限する |
 
 | 関数 | 内容 |
 | --- | --- |
-| `Initialize(paramGroup)` | 調整項目（`cameraHeightOffset` / `mouseSensitivity` / `aimYawLimit` / `aimPitchLimit`）の登録 |
-| `Reset()` | 照準オフセットを 0 に戻す |
-| `Update(basePosition, baseRotation, isInputEnabled, input)` | 位置・向き・前方ベクトル・右方向ベクトルを計算し、カメラに反映する |
+| `Initialize(paramGroup)` | 調整項目（`cameraHeightOffset` / `cameraDistance` / `cameraFollowSharpness` / `mouseSensitivity` / `aimYawLimit` / `aimPitchLimit`）の登録 |
+| `Reset()` | 照準オフセットを 0 に戻し、次の更新で追従の遅れなしにレールの向きへ合わせる |
+| `Update(basePosition, baseRotation, isInputEnabled, input, deltaTime)` | 位置・向き・前方ベクトル・右方向ベクトルを計算し、カメラに反映する |
 | `GetPosition` / `GetRotation` / `GetForward` / `GetRight` | 計算結果の取得 |
 
 ### DebugTopCamera（`Camera/DebugTopCamera.h/.cpp`）

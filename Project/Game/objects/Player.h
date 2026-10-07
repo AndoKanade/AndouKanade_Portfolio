@@ -46,9 +46,9 @@ public:
 	/// <summary>
 	/// 表示位置の計算とモデルの行列更新
 	/// </summary>
-	/// <param name="cameraForward">カメラの前方ベクトル(カメラの前方下に置くために使う)</param>
+	/// <param name="cameraRotation">カメラの向き(体を照準の方向へ向けるために使う)</param>
 	/// <param name="hopHeight">タイトル中の跳ねの高さ(見た目だけに反映する)</param>
-	void UpdateTransform(const Vector3& cameraForward,float hopHeight);
+	void UpdateTransform(const Vector3& cameraRotation,float hopHeight);
 
 	// 被弾後の無敵時間を進める
 	void UpdateInvincible(float deltaTime);
@@ -80,6 +80,8 @@ public:
 	const Vector3& GetBasePosition() const{ return basePosition_; }
 	// カメラ・プレイヤーの共通の基準向きを取得
 	const Vector3& GetBaseRotation() const{ return baseRotation_; }
+	// 弾を撃ち出す位置を取得(足元から構えた手元の高さまで上げた位置)
+	Vector3 GetMuzzlePosition() const{ return {position_.x, position_.y + kMuzzleHeight, position_.z}; }
 
 	// レールの終点に着いたかどうか(オンレール中に終端まで進んだらtrue)
 	bool HasReachedGoal() const{ return isOnRail_ && isRailFinished_; }
@@ -145,11 +147,8 @@ private:
 	static constexpr float kDefaultRailSpeed = 4.0f;
 	// モデルの表示スケール
 	static constexpr float kScale = 0.3f;
-	// カメラの前方へ置く距離(引きのカメラにするため、カメラから離して置く)
-	static constexpr float kDistanceFromCamera = 6.0f;
-	// モデルを基準位置よりさらに下げるオフセット
-	// 注意: カメラのFOV(1.0472rad≒60度)を超えて大きくしすぎると視野から外れて描画されなくなる
-	static constexpr float kDownOffset = 0.1f;
+	// 弾を撃ち出す高さ(足元からの高さ。モデルの身長1.66にkScaleを掛けた約0.5のうち、胸の高さにする)
+	static constexpr float kMuzzleHeight = 0.35f;
 	// 体力の最大値(Reset()でこの値へ戻す)
 	static constexpr int kMaxHp = 3;
 	// 被弾してから次に被弾できるようになるまでの無敵時間(秒)

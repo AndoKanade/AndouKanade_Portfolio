@@ -48,6 +48,10 @@ namespace{
 	const std::string kHitParticleTexture = "resource/circle.png";
 	// ParticleManager::EmitSpark()が内部で使用するグループ名と合わせる必要がある
 	const char* kHitParticleGroupName = "Spark";
+
+	// 弾が画面中央のレティクルへ向かって飛ぶよう、カメラの前方のこの距離の点を狙って撃ち出す
+	// (カメラはプレイヤーの後ろ上にあるため、カメラと同じ向きで平行に撃つとレティクルより下にずれる)
+	constexpr float kAimConvergeDistance = 30.0f;
 }
 
 GameScene::GameScene() = default;
@@ -274,8 +278,8 @@ void GameScene::UpdateGameplay(){
 	// オンレール/オフレールの状態に応じて、カメラ・プレイヤーの基準位置と基準向きを求める
 	player_->UpdateBasePose(railEditor_.get());
 
-	// カメラを基準位置に置き、照準の入力を反映する
-	railCamera_->Update(player_->GetBasePosition(),player_->GetBaseRotation(),isGameplayActive,input_);
+	// カメラを基準位置の後ろ上に置き、照準の入力を反映する
+	railCamera_->Update(player_->GetBasePosition(),player_->GetBaseRotation(),isGameplayActive,input_,kDeltaTime);
 	const Vector3& cameraPos = railCamera_->GetPosition();
 	const Vector3& cameraForward = railCamera_->GetForward();
 
@@ -292,9 +296,9 @@ void GameScene::UpdateGameplay(){
 	ShowStatusWindow();
 #endif
 
-	// プレイヤーをカメラの前方下に配置する
+	// プレイヤーをレールの上に立たせ、照準の方向へ向ける
 	// 座標は雑魚敵の検知判定・開始演出にも使う
-	player_->UpdateTransform(cameraForward,startSequence_->GetPlayerHopHeight());
+	player_->UpdateTransform(railCamera_->GetRotation(),startSequence_->GetPlayerHopHeight());
 	const Vector3& playerPos = player_->GetPosition();
 
 	// 開始演出中は、プレイ用カメラをプレイヤー中心に回転させた位置・向きでカメラを上書きする
@@ -352,7 +356,10 @@ void GameScene::UpdateGameplay(){
 	// 弾の発射処理(左クリックした瞬間に1発だけ発射する)
 	bool shootTriggered = isGameplayActive && input_ && input_->TriggerMouseButton(kShootMouseButton);
 	if(shootTriggered){
-		bulletManager_->Fire(cameraPos,cameraForward);
+		// プレイヤーの手元から、レティクルの先の点へ向けて撃ち出す
+		Vector3 muzzlePos = player_->GetMuzzlePosition();
+		Vector3 aimPoint = cameraPos + cameraForward * kAimConvergeDistance;
+		bulletManager_->Fire(muzzlePos,Normalize(aimPoint - muzzlePos));
 	}
 
 	// 弾の移動更新と生存時間チェック

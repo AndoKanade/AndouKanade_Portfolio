@@ -4,7 +4,9 @@
         "aimPitchLimit": 0.5,
         "aimSpeed": 1.790000081062317,
         "aimYawLimit": 0.6000000238418579,
-        "cameraHeightOffset": 1.25,
+        "cameraDistance": 3.0,
+        "cameraFollowSharpness": 8.0,
+        "cameraHeightOffset": 0.8,
         "mouseSensitivity": 0.00039999998989515007,
         "noseOffset": 2.0,
         "railSpeed": 4.0
