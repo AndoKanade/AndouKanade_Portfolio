@@ -528,18 +528,6 @@ Edit モードの Global Variables パネル、または `resource/GlobalVariabl
 | `Update()` / `Draw()` | 行列の更新 / 描画 |
 | `GetHeight()` | 地面の高さを取得する（落下リスタートの判定に使う） |
 
-### CelestialSphere（`objects/CelestialSphere.h/.cpp`）
-
-天球（ゲームの背景の空）。画面全体を覆う三角形を一番奥に描き、ピクセルごとの視線の向きから空の色をシェーダー（`Engine/Graphics/Shaders/Skybox/CelestialSphere.*`）で計算する。参考映像に合わせ、霧で白んだ水色の空に、霧にかすむ遠景の建造物のシルエット（柱・張り出し・頂上のふた・浮いたかけらを奥・中・手前の3層で重ねる）を描く。太陽の向きと色は Sun が設定した平行光源から読み取る。背景に描き込んでいるため、カメラが移動しても建造物は動かない。
-
-| 関数 | 内容 |
-| --- | --- |
-| `Initialize(DXCommon*, paramGroup)` | 描画パイプラインと定数バッファを生成し、調整項目を登録する |
-| `Update(deltaTime)` | 経過時間・太陽・調整項目の最新値を定数バッファへ書き込む |
-| `Draw(camera)` | カメラの向きを反映して描画する（GameScene::Draw の最初に呼ぶ） |
-
-調整項目（GameScene グループ）: `skyZenithColor`（真上の色）、`skyMiddleColor`（中ほどの色）、`skyHorizonColor`（地平線付近の色）、`skyStructureColor`（建造物の色）、`skyStructureVisibility`（建造物の見え具合、0 で消す）、`skyStarIntensity`（星の明るさ、初期値 0）。
-
 ### InkEffectManager（`objects/InkEffectManager.h/.cpp`）
 
 インクのしぶき・的の破片・撃破時の閃光の演出。起動時にしぶき 160・破片 48・閃光 8 個の Obj3D を生成して使い回し、空きが無いときは一番古いものを上書きする。

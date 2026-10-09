@@ -91,7 +91,7 @@ void Obj3D::Draw(){
     auto* commandList = object3dCommon->GetDxCommon()->GetCommandList();
     auto* lightRes = ModelManager::GetInstance()->GetModelCommon()->GetLightResource();
     Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera();
-    uint32_t skyboxSRVIndex = TextureManager::GetInstance()->GetSrvIndex("resource/Skybox/rostock_laage_airport_4k.dds");
+    uint32_t skyboxSRVIndex = TextureManager::GetInstance()->GetSrvIndex("resource/Skybox/celestialSphere.dds");
 
     // カメラ合成 (WVP)
     // Update()の時点ではカメラ行列が前フレームのままのため、カメラ更新後の描画時に合成して1フレームの遅れを防ぐ

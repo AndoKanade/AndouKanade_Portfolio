@@ -23,7 +23,6 @@
 // ゲームオブジェクト
 #include "objects/Ground.h"
 #include "objects/Sun.h"
-#include "objects/CelestialSphere.h"
 #include "objects/Player.h"
 #include "objects/PlayerBulletManager.h"
 #include "objects/TargetManager.h"
@@ -41,7 +40,8 @@
 
 namespace{
 	// スカイボックスのテクスチャパス
-	const std::string kSkyboxTexture = "resource/Skybox/rostock_laage_airport_4k.dds";
+	// 天球(霧で白んだ水色の空と遠景の建造物)の画像。tools/generate_celestial_sphere.py で生成する
+	const std::string kSkyboxTexture = "resource/Skybox/celestialSphere.dds";
 	// GlobalVariablesのグループ名(GameSceneの調整項目)
 	const char* kGameSceneGroup = "GameScene";
 
@@ -105,10 +105,6 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	// 太陽の生成(方角はレール開始地点の進行方向を基準にする)
 	sun_ = std::make_unique<Sun>();
 	sun_->Initialize(kGameSceneGroup,railEditor_->GetForwardOnRail(0.0f));
-
-	// 天球の生成(太陽の向きと色は、太陽が設定した平行光源から読み取る)
-	celestialSphere_ = std::make_unique<CelestialSphere>();
-	celestialSphere_->Initialize(object3dCommon_->GetDxCommon(),kGameSceneGroup);
 
 	// プレイヤーの生成
 	player_ = std::make_unique<Player>();
@@ -200,11 +196,6 @@ void GameScene::ResetPlayState(){
 
 // シーンの更新処理
 void GameScene::Update(){
-	// スカイボックスの更新
-	if(skybox_){
-		skybox_->Update(*CameraManager::GetInstance()->GetActiveCamera());
-	}
-
 	// パーティクルの更新(発生タイミング・経過時間の進行。カメラ行列は描画時に反映する)
 	ParticleManager::GetInstance()->Update();
 
@@ -213,9 +204,6 @@ void GameScene::Update(){
 
 	// 太陽の光の向き・色・明るさを調整項目の最新値で更新する
 	sun_->Update();
-
-	// 天球の更新(太陽の更新後に行い、空の太陽の位置を光の向きと一致させる)
-	celestialSphere_->Update(kDeltaTime);
 
 	// レティクルの更新
 	reticle_->Update();
@@ -540,9 +528,11 @@ void GameScene::ShowEditorPanels(){
 
 // シーンの描画処理
 void GameScene::Draw(){
-	// 天球(背景の空)を一番最初に描く
-	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
-		celestialSphere_->Draw(*activeCamera);
+	// スカイボックス(天球の画像)を一番最初に描く
+	// Update()の時点ではカメラ行列が前フレームのままのため、カメラ更新後の描画時に行列を更新して空が1フレーム遅れて回るのを防ぐ
+	if(skybox_){
+		skybox_->Update(*CameraManager::GetInstance()->GetActiveCamera());
+		skybox_->Draw();
 	}
 
 	object3dCommon_->Draw();

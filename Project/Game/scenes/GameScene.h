@@ -14,7 +14,6 @@ class RailEditor;
 class StartSequence;
 class Ground;
 class Sun;
-class CelestialSphere;
 class Player;
 class RailCamera;
 class DebugTopCamera;
@@ -82,9 +81,6 @@ private:
 
 	// 太陽(見た目は持たない光源)
 	std::unique_ptr<Sun> sun_;
-
-	// 天球(背景の空)
-	std::unique_ptr<CelestialSphere> celestialSphere_;
 
 	// プレイヤー
 	std::unique_ptr<Player> player_;

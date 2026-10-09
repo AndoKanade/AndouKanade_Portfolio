@@ -261,9 +261,6 @@
     <ClCompile Include="Game\objects\Sun.cpp">
       <Filter>ソース ファイル\Game\objects</Filter>
     </ClCompile>
-    <ClCompile Include="Game\objects\CelestialSphere.cpp">
-      <Filter>ソース ファイル\Game\objects</Filter>
-    </ClCompile>
     <ClCompile Include="Game\objects\Ground.cpp">
       <Filter>ソース ファイル\Game\objects</Filter>
     </ClCompile>
@@ -464,9 +461,6 @@
     <ClInclude Include="Game\objects\Sun.h">
       <Filter>ヘッダー ファイル\Game\objects</Filter>
     </ClInclude>
-    <ClInclude Include="Game\objects\CelestialSphere.h">
-      <Filter>ヘッダー ファイル\Game\objects</Filter>
-    </ClInclude>
     <ClInclude Include="Game\objects\Ground.h">
       <Filter>ヘッダー ファイル\Game\objects</Filter>
     </ClInclude>
@@ -547,9 +541,6 @@
     <None Include="Engine\Graphics\Shaders\Skybox\Skybox.hlsli">
       <Filter>Resources\shader\Skybox</Filter>
     </None>
-    <None Include="Engine\Graphics\Shaders\Skybox\CelestialSphere.hlsli">
-      <Filter>Resources\shader\Skybox</Filter>
-    </None>
     <None Include="Engine\Graphics\Shaders\PostProcess\PostProcess.hlsli">
       <Filter>Resources\shader\PostEffect</Filter>
     </None>
@@ -581,12 +572,6 @@
       <Filter>Resources\shader\Skybox</Filter>
     </FxCompile>
     <FxCompile Include="Engine\Graphics\Shaders\Skybox\Skybox.VS.hlsl">
-      <Filter>Resources\shader\Skybox</Filter>
-    </FxCompile>
-    <FxCompile Include="Engine\Graphics\Shaders\Skybox\CelestialSphere.PS.hlsl">
-      <Filter>Resources\shader\Skybox</Filter>
-    </FxCompile>
-    <FxCompile Include="Engine\Graphics\Shaders\Skybox\CelestialSphere.VS.hlsl">
       <Filter>Resources\shader\Skybox</Filter>
     </FxCompile>
     <FxCompile Include="Engine\Graphics\Shaders\PostProcess\Boxfilter.PS.hlsl">
