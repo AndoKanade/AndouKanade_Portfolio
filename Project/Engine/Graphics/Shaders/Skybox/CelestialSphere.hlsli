@@ -18,4 +18,6 @@ struct CelestialSphereParam
     float padding1;
     float32_t3 sunColor; // 太陽の方向の光のにじみの色
     float padding2;
+    float32_t3 structureColor; // 遠景の建造物の太陽側の面の色
+    float structureVisibility; // 遠景の建造物の見え具合(0で消す)
 };

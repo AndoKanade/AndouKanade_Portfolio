@@ -13,7 +13,7 @@ struct DirectionalLight;
 /// <summary>
 /// 天球(ゲームの背景の空)
 /// 画面全体を覆う三角形を一番奥に描き、ピクセルごとの視線の向きから空の色をシェーダーで計算する。
-/// 地平線から真上へのグラデーション(霧で白んだ水色→少し濃い青緑)・太陽の方向の霞んだ光のにじみ・高いところほど見える星のまたたき(初期値では消している)を表現する。
+/// 地平線から真上へのグラデーション(霧で白んだ水色→少し濃い青緑)・太陽の方向の霞んだ光のにじみ・霧にかすむ遠景の建造物のシルエット・高いところほど見える星のまたたき(初期値では消している)を表現する。
 /// 太陽の向きと色は3Dオブジェクト共通の平行光源(Sunが設定したもの)から取るため、光の当たり方と空の太陽の位置が一致する。
 /// 空の色と星の明るさはGlobalVariablesに登録し、ImGuiの編集や外部ファイルの書き換えを毎フレーム反映する。
 /// </summary>
@@ -53,6 +53,8 @@ private:
 		float padding1;
 		Vector3 sunColor;
 		float padding2;
+		Vector3 structureColor;
+		float structureVisibility;
 	};
 
 	void CreateRootSignature();
@@ -85,6 +87,10 @@ private:
 	static constexpr Vector3 kDefaultMiddleColor = {0.28f, 0.51f, 0.56f};
 	// 地平線付近の空の色の初期値(霧で白んだ明るい水色)
 	static constexpr Vector3 kDefaultHorizonColor = {0.51f, 0.75f, 0.77f};
+	// 遠景の建造物の太陽側の面の色の初期値(霧の中で白っぽく見える灰色)
+	static constexpr Vector3 kDefaultStructureColor = {0.72f, 0.78f, 0.78f};
+	// 遠景の建造物の見え具合の初期値(0で消す)
+	static constexpr float kDefaultStructureVisibility = 1.0f;
 	// 星の明るさの初期値(明るい空には星が合わないため0で消しておく。夜空にしたいときに上げる)
 	static constexpr float kDefaultStarIntensity = 0.0f;
 };

@@ -15,6 +15,8 @@ namespace{
 	const char* kMiddleColorKey = "skyMiddleColor";
 	const char* kHorizonColorKey = "skyHorizonColor";
 	const char* kStarIntensityKey = "skyStarIntensity";
+	const char* kStructureColorKey = "skyStructureColor";
+	const char* kStructureVisibilityKey = "skyStructureVisibility";
 }
 
 // 初期化処理
@@ -41,6 +43,8 @@ void CelestialSphere::Initialize(DXCommon* dxCommon,const std::string& paramGrou
 	gv->AddItem(paramGroup_,kMiddleColorKey,kDefaultMiddleColor);     // 地平線と真上の間の空の色(RGB)
 	gv->AddItem(paramGroup_,kHorizonColorKey,kDefaultHorizonColor);   // 地平線付近の空の色(RGB)
 	gv->AddItem(paramGroup_,kStarIntensityKey,kDefaultStarIntensity); // 星の明るさ
+	gv->AddItem(paramGroup_,kStructureColorKey,kDefaultStructureColor);           // 遠景の建造物の色(RGB)
+	gv->AddItem(paramGroup_,kStructureVisibilityKey,kDefaultStructureVisibility); // 遠景の建造物の見え具合
 }
 
 // 更新処理
@@ -60,6 +64,8 @@ void CelestialSphere::Update(float deltaTime){
 	paramData_->middleColor = gv->GetVector3Value(paramGroup_,kMiddleColorKey);
 	paramData_->horizonColor = gv->GetVector3Value(paramGroup_,kHorizonColorKey);
 	paramData_->starIntensity = gv->GetFloatValue(paramGroup_,kStarIntensityKey);
+	paramData_->structureColor = gv->GetVector3Value(paramGroup_,kStructureColorKey);
+	paramData_->structureVisibility = gv->GetFloatValue(paramGroup_,kStructureVisibilityKey);
 }
 
 // 描画処理
