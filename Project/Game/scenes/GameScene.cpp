@@ -529,6 +529,7 @@ void GameScene::ShowEditorPanels(){
 // シーンの描画処理
 void GameScene::Draw(){
 	// スカイボックス(天球の画像)を一番最初に描く
+	// 深度は常に最奥(1.0)で書き込まないため、後から描く3Dオブジェクトがすべて手前に表示される
 	// Update()の時点ではカメラ行列が前フレームのままのため、カメラ更新後の描画時に行列を更新して空が1フレーム遅れて回るのを防ぐ
 	if(skybox_){
 		skybox_->Update(*CameraManager::GetInstance()->GetActiveCamera());
