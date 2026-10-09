@@ -618,3 +618,18 @@ GameScene.cpp が約1000行あり、道中作りでさらに処理が増える�
 
 この変更は Windows でのビルド・実機での確認をしていない。DirectX 周りを仮のヘッダーで置き換えて clang で構文チェックだけ行い、変更したファイルにエラーが無いことを確認した。
 
+---
+
+## 2026-10-09
+
+### 1. 背景を天球にした
+
+対象ファイル: `Game/objects/CelestialSphere.h/.cpp`（新規）、`Engine/Graphics/Shaders/Skybox/CelestialSphere.hlsli` / `.VS.hlsl` / `.PS.hlsl`（新規）、`Game/scenes/GameScene.h/.cpp`、`MyGameEngine.vcxproj` / `.filters`
+
+- これまでの背景は空を何も描いておらず、画面のクリア色（青）がそのまま見えていた。既存の Skybox は更新だけされていて描画されていなかった。
+- 参考映像に合わせ、霧で白んだ水色の空と、霧にかすむ遠景の建造物のシルエットを、素材を使わずシェーダーで描くようにした（CelestialSphere）。
+- 建造物は背景に描き込んでいるため、カメラが移動しても動かない。近くをすれ違う建造物が必要になったら、モデルで配置する。
+
+### ビルド確認（1.）
+
+この変更は Windows でのビルド・実機での確認をしていない。シェーダーと同じ計算を Python で再現して見た目だけ確認した。
