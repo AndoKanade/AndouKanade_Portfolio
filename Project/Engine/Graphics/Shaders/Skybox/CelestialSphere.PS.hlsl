@@ -12,21 +12,16 @@ static const float kMiddleColorHeight = 0.3f;
 // 地平線の帯状の明るさの鋭さ(大きいほど帯が細くなる)
 static const float kHorizonGlowSharpness = 12.0f;
 // 地平線の帯状の明るさの強さ
-static const float kHorizonGlowStrength = 0.35f;
+static const float kHorizonGlowStrength = 0.2f;
 // 地平線より下の色の暗さ(雲海に隠れる部分なので地平線の色を少し暗くするだけにする)
 static const float kBelowHorizonDarken = 0.7f;
 
-// 太陽の円盤の見かけの半径(ラジアン)
-static const float kSunDiscRadius = 0.03f;
-// 太陽の円盤の縁のぼかし幅(ラジアン)
-static const float kSunDiscEdge = 0.006f;
-// 太陽の円盤の明るさ
-static const float kSunDiscStrength = 4.0f;
-// 太陽のまわりの光のにじみ(広い方と狭い方)の鋭さと強さ
-static const float kSunWideGlowPower = 6.0f;
-static const float kSunWideGlowStrength = 0.25f;
-static const float kSunNarrowGlowPower = 120.0f;
-static const float kSunNarrowGlowStrength = 0.8f;
+// 太陽の方向の霞んだ光のにじみ(広い方と狭い方)の鋭さと強さ
+// 霧の中にいるような空にするため、太陽の円盤は描かず光のにじみだけで方向を感じさせる
+static const float kSunWideGlowPower = 4.0f;
+static const float kSunWideGlowStrength = 0.15f;
+static const float kSunNarrowGlowPower = 40.0f;
+static const float kSunNarrowGlowStrength = 0.25f;
 
 // 星を置く格子の細かさ(天球を囲む立方体格子の1辺あたりのマス数)
 static const float kStarGridDensity = 60.0f;
@@ -88,7 +83,7 @@ PixelShaderOutput main(VertexShaderOutput input)
     float height = direction.y;
 
     // 地平線から真上へのグラデーション
-    // 暖色と藍色を直接混ぜると灰色にくすむため、間に青空の色をはさんで2段階で変化させる
+    // 2色を直接混ぜるだけだと中間の色を選べないため、間に中ほどの色をはさんで2段階で変化させる
     float32_t3 color;
     if (height < kMiddleColorHeight)
     {
@@ -108,12 +103,10 @@ PixelShaderOutput main(VertexShaderOutput input)
         color = lerp(color, gParam.horizonColor * kBelowHorizonDarken, saturate(-height));
     }
 
-    // 太陽の円盤とまわりの光のにじみ
+    // 太陽の方向の霞んだ光のにじみ
     float sunDot = saturate(dot(direction, gParam.toSun));
-    float sunAngle = acos(sunDot);
-    float sunDisc = 1.0f - smoothstep(kSunDiscRadius - kSunDiscEdge, kSunDiscRadius, sunAngle);
     float sunGlow = pow(sunDot, kSunWideGlowPower) * kSunWideGlowStrength + pow(sunDot, kSunNarrowGlowPower) * kSunNarrowGlowStrength;
-    color += gParam.sunColor * (sunDisc * kSunDiscStrength + sunGlow);
+    color += gParam.sunColor * sunGlow;
 
     // 星は高いところほどはっきり見せ、太陽のそばでは消す
     float starFade = smoothstep(kStarFadeStartHeight, kStarFadeEndHeight, height);

@@ -16,6 +16,6 @@ struct CelestialSphereParam
     float padding0;
     float32_t3 horizonColor; // 地平線付近の空の色
     float padding1;
-    float32_t3 sunColor; // 太陽と光のにじみの色
+    float32_t3 sunColor; // 太陽の方向の光のにじみの色
     float padding2;
 };

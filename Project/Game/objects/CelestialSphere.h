@@ -13,7 +13,7 @@ struct DirectionalLight;
 /// <summary>
 /// 天球(ゲームの背景の空)
 /// 画面全体を覆う三角形を一番奥に描き、ピクセルごとの視線の向きから空の色をシェーダーで計算する。
-/// 地平線から真上へのグラデーション(夕焼け色→青空→星空の藍色)・太陽の円盤と光のにじみ・高いところほど見える星のまたたきを表現する。
+/// 地平線から真上へのグラデーション(霧で白んだ水色→少し濃い青緑)・太陽の方向の霞んだ光のにじみ・高いところほど見える星のまたたき(初期値では消している)を表現する。
 /// 太陽の向きと色は3Dオブジェクト共通の平行光源(Sunが設定したもの)から取るため、光の当たり方と空の太陽の位置が一致する。
 /// 空の色と星の明るさはGlobalVariablesに登録し、ImGuiの編集や外部ファイルの書き換えを毎フレーム反映する。
 /// </summary>
@@ -78,12 +78,13 @@ private:
 	// 経過時間(秒)
 	float time_ = 0.0f;
 
-	// 真上の空の色の初期値(星が映える深い藍色。シェーダー内の色はリニア値)
-	static constexpr Vector3 kDefaultZenithColor = {0.008f, 0.015f, 0.07f};
-	// 地平線と真上の間の空の色の初期値(青空の色)
-	static constexpr Vector3 kDefaultMiddleColor = {0.12f, 0.25f, 0.65f};
-	// 地平線付近の空の色の初期値(雲海の上の夕焼けのような暖色)
-	static constexpr Vector3 kDefaultHorizonColor = {0.95f, 0.6f, 0.38f};
-	// 星の明るさの初期値(0で星を消す)
-	static constexpr float kDefaultStarIntensity = 1.0f;
+	// 空の色の初期値は、スプラトゥーンの参考映像のような白っぽく霞んだ水色に合わせる(シェーダー内の色はリニア値)
+	// 真上の空の色の初期値(少し濃い青緑)
+	static constexpr Vector3 kDefaultZenithColor = {0.17f, 0.35f, 0.4f};
+	// 地平線と真上の間の空の色の初期値(くすんだ水色)
+	static constexpr Vector3 kDefaultMiddleColor = {0.28f, 0.51f, 0.56f};
+	// 地平線付近の空の色の初期値(霧で白んだ明るい水色)
+	static constexpr Vector3 kDefaultHorizonColor = {0.51f, 0.75f, 0.77f};
+	// 星の明るさの初期値(明るい空には星が合わないため0で消しておく。夜空にしたいときに上げる)
+	static constexpr float kDefaultStarIntensity = 0.0f;
 };
