@@ -540,9 +540,10 @@ void GameScene::ShowEditorPanels(){
 
 // シーンの描画処理
 void GameScene::Draw(){
-	// 天球(背景の空)を一番最初に描く
-	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
-		celestialSphere_->Draw(*activeCamera);
+	// スカイボックス(背景の空)を一番最初に描く
+	// 深度は常に最奥(1.0)で書き込まないため、後から描く3Dオブジェクトがすべて手前に表示される
+	if(skybox_){
+		skybox_->Draw();
 	}
 
 	object3dCommon_->Draw();
