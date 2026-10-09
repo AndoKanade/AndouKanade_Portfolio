@@ -23,6 +23,7 @@
 // ゲームオブジェクト
 #include "objects/Ground.h"
 #include "objects/Sun.h"
+#include "objects/CelestialSphere.h"
 #include "objects/Player.h"
 #include "objects/PlayerBulletManager.h"
 #include "objects/TargetManager.h"
@@ -104,6 +105,10 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	// 太陽の生成(方角はレール開始地点の進行方向を基準にする)
 	sun_ = std::make_unique<Sun>();
 	sun_->Initialize(kGameSceneGroup,railEditor_->GetForwardOnRail(0.0f));
+
+	// 天球の生成(太陽の向きと色は、太陽が設定した平行光源から読み取る)
+	celestialSphere_ = std::make_unique<CelestialSphere>();
+	celestialSphere_->Initialize(object3dCommon_->GetDxCommon(),kGameSceneGroup);
 
 	// プレイヤーの生成
 	player_ = std::make_unique<Player>();
@@ -208,6 +213,9 @@ void GameScene::Update(){
 
 	// 太陽の光の向き・色・明るさを調整項目の最新値で更新する
 	sun_->Update();
+
+	// 天球の更新(太陽の更新後に行い、空の太陽の位置を光の向きと一致させる)
+	celestialSphere_->Update(kDeltaTime);
 
 	// レティクルの更新
 	reticle_->Update();
@@ -532,6 +540,11 @@ void GameScene::ShowEditorPanels(){
 
 // シーンの描画処理
 void GameScene::Draw(){
+	// 天球(背景の空)を一番最初に描く
+	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
+		celestialSphere_->Draw(*activeCamera);
+	}
+
 	object3dCommon_->Draw();
 
 	// 雲海の雲の部分を描画(他のオブジェクトより先に描く)
